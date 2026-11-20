@@ -1,7 +1,8 @@
-import { clearCookie, json, readJson, requestIsSafe } from "../../_lib/blog.js";
+import { errorResponse, isSameOrigin, json, readJson } from "../../_lib/http.js";
+import { clearedCookie, SESSION_COOKIE } from "../../_lib/session.js";
 
 export async function onRequestPost({ request }) {
-  if (!requestIsSafe(request)) return json({ ok: false, error: "Origem inválida." }, 403);
-  if (!await readJson(request)) return json({ ok: false, error: "Requisição JSON inválida." }, 400);
-  return json({ ok: true }, 200, { "Set-Cookie": clearCookie("discord_session", request) });
+  if (!isSameOrigin(request)) return errorResponse("Origem inválida.", 403);
+  if (!await readJson(request)) return errorResponse("Requisição JSON inválida.");
+  return json({ ok: true }, 200, { "Set-Cookie": clearedCookie(SESSION_COOKIE, request) });
 }

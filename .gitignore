@@ -2,5 +2,6 @@ node_modules/
 .wrangler/
 .dev.vars
 .env
+P26-repo-antigo.bundle
 .DS_Store
 Thumbs.db
