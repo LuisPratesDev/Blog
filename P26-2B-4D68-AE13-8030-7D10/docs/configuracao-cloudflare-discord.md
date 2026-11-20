@@ -129,6 +129,7 @@ Para autenticação em **Preview deployments**, repita a configuração no ambie
 - `Functions published` falhou por outro motivo — leia o primeiro erro do log; assets publicados com funções falhando são problemas diferentes.
 - `/api/health` responde `database: "missing"` — o binding `DB` não foi criado ou o deploy não foi refeito depois de criá-lo.
 - `/api/health` responde `no such table` — o schema do passo 3 não foi aplicado no banco remoto.
+- `no such table: main.<tabela>` ao criar um índice no Console — o `CREATE TABLE` daquela tabela não foi aplicado na mesma execução (script grande cortado). Rode o `CREATE TABLE` sozinho e depois o índice dele; os comandos usam `IF NOT EXISTS` e podem ser repetidos.
 
 ## Valores a configurar — resumo
 

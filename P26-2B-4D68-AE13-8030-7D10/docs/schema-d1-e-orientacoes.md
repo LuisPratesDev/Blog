@@ -337,7 +337,9 @@ O D1 aplica chaves estrangeiras, então a ordem de criação importa: usuários 
 ## 4. Preparar o banco pelo painel (sem Wrangler)
 
 1. **Criar o D1:** no painel, **Workers & Pages → D1 → Create database**, nome `db-p26-2b-4d68-ae13-8030-7d10`. Não é preciso copiar o UUID para nenhum arquivo do repositório.
-2. **Criar as tabelas:** abra o banco criado → aba **Console** → cole o bloco da seção 2 (ou o conteúdo de [`schema.sql`](../schema.sql)) → **Execute**. Se o Console só aceitar um comando por vez, execute os `CREATE TABLE` na ordem do bloco e depois os índices.
+2. **Criar as tabelas:** abra o banco criado → aba **Console** → cole o bloco da seção 2 (ou o conteúdo de [`schema.sql`](../schema.sql)) → **Execute**. Se o Console aceitar apenas um comando por vez, execute os `CREATE TABLE` na ordem do bloco e depois os índices.
+
+   As instruções são independentes: se alguma não for aplicada (o Console pode cortar um script grande), rode aquele `CREATE TABLE` sozinho e depois o índice dele. Cada comando pode ser repetido sem erro, porque todos usam `IF NOT EXISTS`.
 3. **Associar o banco ao projeto Pages:** **Workers & Pages → seu projeto Pages → Settings → Bindings → Add → D1 database bindings**.
    - **Variable name:** `DB` (exatamente assim; o código lê `env.DB`).
    - **D1 database:** selecione `db-p26-2b-4d68-ae13-8030-7d10`.
@@ -393,6 +395,7 @@ Sem Wrangler, o caminho é o Console do banco: abra o D1 → **Console** → col
 | Deploy falha com `Invalid database UUID` | Alguém reintroduziu um arquivo de configuração de Wrangler com `database_id` | Apagar o arquivo; o binding fica no painel |
 | `/api/health` com `database: "missing"` | Binding `DB` não configurado no projeto Pages | Settings → Bindings → Add → D1 database bindings |
 | `/api/health` com `no such table: ...` | Schema não aplicado no banco remoto | Executar o bloco da seção 2 no Console do D1 |
+| `no such table: main.comment_reports` ao criar um índice | O `CREATE TABLE` daquela tabela não foi aplicado na mesma execução (script grande cortado pelo Console) | Rodar o `CREATE TABLE` da tabela sozinho e depois o índice dela |
 | Login responde `auth_not_configured` | Variável/secret ausente ou `SESSION_SECRET` curto | Reconfigurar em Variables and Secrets e redeployar |
 | Login volta com erro de redirect | Callback do Discord diferente do domínio real | Cadastrar a URL exata com `https://` e o caminho completo |
 | Escrita funciona local e falha em produção | Banco local e remoto são independentes | Aplicar o schema no D1 remoto pelo Console |
