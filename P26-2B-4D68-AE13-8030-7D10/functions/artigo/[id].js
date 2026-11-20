@@ -84,7 +84,7 @@ function renderNotice({ status, title, message, user, canonical }) {
 function renderComment(comment, permissions) {
   const actions = [
     permissions.canDelete
-      ? `<button class="action-button" type="button" data-delete-comment="${comment.id}" aria-label="Excluir comentário de ${escapeHtml(comment.username)}">Excluir comentário</button>`
+      ? `<button class="action-button action-danger" type="button" data-delete-comment="${comment.id}" aria-label="Excluir comentário de ${escapeHtml(comment.username)}">Excluir comentário</button>`
       : "",
     permissions.canReport
       ? `<button class="action-button" type="button" data-report-comment="${comment.id}" aria-label="Denunciar comentário de ${escapeHtml(comment.username)}">Denunciar</button>`
@@ -143,6 +143,7 @@ function renderArticle({ article, comments, related, user, permissions }) {
 
   const ownerActions = user && user.userId === article.author_id
     ? `<div class="article-actions owner-bar">
+        <a class="button button-small button-accent" href="/?editar=${article.id}" title="Abre o artigo no editor da página inicial">Editar artigo</a>
         <a class="button button-small" href="/?author=${encodeURIComponent(article.author_id)}">Ver meus artigos</a>
         <button class="button button-small button-danger" type="button" data-delete-article="${article.id}" title="Apaga o artigo e os comentários dele">Excluir artigo</button>
       </div>`

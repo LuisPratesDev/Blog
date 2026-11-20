@@ -23,7 +23,23 @@ export async function onRequestGet({ request, env, params }) {
     ORDER BY c.created_at ASC, c.id ASC
     LIMIT 200
   `).bind(params.id).all();
-  return json({ comments: result.results || [] });
+
+  // As mesmas regras do DELETE: autor do comentário, autor do artigo ou dono da sala.
+  const viewer = user?.userId || "";
+  let roomOwnerId = null;
+  if (article.room_id) {
+    const room = await env.DB.prepare("SELECT owner_id FROM rooms WHERE id = ?")
+      .bind(article.room_id).first();
+    roomOwnerId = room?.owner_id || null;
+  }
+  const comments = (result.results || []).map((comment) => ({
+    ...comment,
+    can_delete: Boolean(viewer) && (
+      comment.author_id === viewer || article.author_id === viewer || roomOwnerId === viewer
+    ),
+    can_report: Boolean(viewer) && comment.author_id !== viewer,
+  }));
+  return json({ comments });
 }
 
 export async function onRequestPost({ request, env, params }) {

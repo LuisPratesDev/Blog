@@ -999,6 +999,20 @@ async function initialize() {
     await Promise.all([loadRooms(), loadTags()]);
     if (authorId) state.author = (await api(`/api/authors/${encodeURIComponent(authorId)}`)).author;
     await loadArticles();
+
+    // "Editar artigo" na página do artigo manda o autor para cá com ?editar=<id>.
+    const editId = params.get("editar");
+    if (editId && state.user) {
+      const { article } = await api(`/api/articles/${encodeURIComponent(editId)}`);
+      if (String(article.author_id) === String(state.user.userId)) {
+        openEditor(article);
+        const url = new URL(location.href);
+        url.searchParams.delete("editar");
+        history.replaceState({}, "", url);
+      } else {
+        setMessage(byId("feedStatus"), "Você só pode editar os seus próprios artigos.");
+      }
+    }
   } catch (error) {
     byId("articleList").textContent = `Não foi possível iniciar o blog: ${error.message}`;
   }

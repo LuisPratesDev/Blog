@@ -14,9 +14,41 @@ function commentItem(comment) {
       attrs: { datetime: comment.created_at || "" },
     }),
   ]);
+
+  // O servidor decide: as mesmas regras do DELETE vêm em can_delete/can_report.
+  const actions = element("div", { className: "comment-actions" });
+  if (comment.can_delete) {
+    actions.append(element("button", {
+      className: "action-button action-danger",
+      text: "Excluir comentário",
+      attrs: {
+        type: "button",
+        "data-delete-comment": String(comment.id),
+        "aria-label": `Excluir comentário de ${comment.username}`,
+      },
+    }));
+  }
+  if (comment.can_report) {
+    actions.append(element("button", {
+      className: "action-button",
+      text: "Denunciar",
+      attrs: {
+        type: "button",
+        "data-report-comment": String(comment.id),
+        "aria-label": `Denunciar comentário de ${comment.username}`,
+      },
+    }));
+  }
+
+  const body = element("div", {}, [
+    heading,
+    element("p", { className: "comment-body", text: comment.body }),
+  ]);
+  if (actions.childElementCount) body.append(actions);
+
   return element("div", { className: "comment-item", attrs: { "data-comment": comment.id } }, [
     avatarImage(comment.avatar),
-    element("div", {}, [heading, element("p", { className: "comment-body", text: comment.body })]),
+    body,
   ]);
 }
 

@@ -86,12 +86,25 @@ try {
   check("histórico guarda o texto antigo", historico.body.revisions?.[0]?.body?.includes("zzz" + token));
   check("outra pessoa não lê o histórico", (await call(`/api/articles/${primeiro.body.id}/revisions`, bruno)).status === 404);
 
+  const detalhe = await call(`/api/articles/${primeiro.body.id}`, ana);
+  const paginaDoArtigo = await fetch(`${base}/artigo/${detalhe.body.article.slug}`, { headers: { Cookie: ana.Cookie } });
+  const paginaHtml = await paginaDoArtigo.text();
+  check("página do artigo oferece editar para o autor", paginaDoArtigo.status === 200 && paginaHtml.includes(`/?editar=${primeiro.body.id}`));
+  const paginaDeOutro = await fetch(`${base}/artigo/${detalhe.body.article.slug}`, { headers: { Cookie: bruno.Cookie } });
+  check("página não oferece editar para quem não é autor", !(await paginaDeOutro.text()).includes("Editar artigo"));
+
   // 4. Comentários: autor do comentário, autor do artigo e dono da sala podem excluir
   const comentario = await call(`/api/articles/${primeiro.body.id}/comments`, bruno, {
     method: "POST",
     body: JSON.stringify({ body: `Comentário ${token}` }),
   });
   check("comentário criado", comentario.status === 201);
+  const listaComoBruno = await call(`/api/articles/${primeiro.body.id}/comments`, bruno);
+  check("autor do comentário recebe permissão de excluir", listaComoBruno.body.comments?.some((item) => item.id === comentario.body.id && item.can_delete));
+  const listaComoAna = await call(`/api/articles/${primeiro.body.id}/comments`, ana);
+  check("autor do artigo também recebe permissão de excluir", listaComoAna.body.comments?.some((item) => item.id === comentario.body.id && item.can_delete));
+  const listaAnonima = await call(`/api/articles/${primeiro.body.id}/comments`);
+  check("anônimo não recebe permissão de excluir", (listaAnonima.body.comments || []).every((item) => !item.can_delete));
   check("denúncia registrada", (await call(`/api/comments/${comentario.body.id}/report`, bruno, { method: "POST", body: JSON.stringify({ reason: "teste" }) })).status === 200);
   check("anônimo não exclui comentário", (await call(`/api/comments/${comentario.body.id}`, anon, { method: "DELETE" })).status === 401);
   check("autor do comentário exclui o próprio", (await call(`/api/comments/${comentario.body.id}`, bruno, { method: "DELETE" })).status === 200);
