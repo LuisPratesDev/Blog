@@ -1,103 +1,139 @@
 # Projeto #27: Entrelinhas — Blog Técnico da Turma
 
-- **Modalidade:** Projeto Oficial Sorteado (Valendo 100 pontos)
-- **Estudante:** LUIS FERNANDO PRATES SANTANA
+- **Modalidade:** Projeto Oficial Sorteado (valendo 100 pontos)
+- **Estudante:** Luis Fernando Prates Santana
+- **RA:** 20226108210
 - **Turma:** 2B
 - **Chave Única:** `P26-2B-4D68-AE13-8030-7D10`
-- **URL_CLOUDFLARE:** `https://p26-2b-4d68-ae13-8030-7d10.pages.dev` *(Atualize com a URL pública real do seu deploy na Cloudflare antes de abrir o Pull Request)*
+- **URL_CLOUDFLARE:** `https://blog-dxw.pages.dev`
 
 ---
 
-## Funcionalidades
+## 1. Sobre o projeto
 
-- Feed público de artigos e páginas individuais de autor, com busca por texto, etiquetas e paginação por cursor.
-- Editor de artigos com escrita em Markdown, pré-visualização, rascunho automático no navegador, etiquetas e histórico de revisões.
-- Comentários com nome e avatar do Discord, em ordem cronológica, curtidas por usuário, exclusão pelo autor/artigo/dono da sala e denúncia.
-- Salas públicas e privadas: cada sala privada tem um **código hash** próprio (o id numérico não serve para entrar), e seus artigos e comentários são visíveis somente aos membros. Membro pode sair, o dono pode transferir ou excluir a sala (os artigos voltam para a página pública).
-- Controle de entrada por política (`open_link` ou `approval`) com fila de pedidos, remoção com bloqueio e liberação posterior.
-- Autenticação Discord OAuth2 com validação `state`, sessão assinada e cookie `HttpOnly` (e `Secure` em https).
-- Regras de propriedade, participação em salas e autorização verificadas nas Pages Functions; dados persistidos no Cloudflare D1.
-- SEO: RSS, `sitemap.xml`, `robots.txt` e metadados Open Graph por artigo; `GET /api/health` para diagnóstico do deploy.
-- Repositório sem dependências de build: apenas HTML/CSS/JS e Pages Functions, pronto para o deploy direto pelo Cloudflare Pages.
-- Cabeçalhos de segurança em `public/_headers` (CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS) e middleware que registra erros 5xx com id de requisição.
+O **Entrelinhas** é um blog técnico para a turma publicar o que está aprendendo. Qualquer pessoa navega pelo feed; para publicar, comentar ou participar de salas é preciso entrar com Discord.
+
+O frontend é HTML5, CSS3 e JavaScript puro (sem frameworks) e o backend roda em **Cloudflare Pages Functions**, com persistência no **Cloudflare D1**.
 
 ---
 
-## Banco de dados
+## 2. Funcionalidades
 
-O schema completo do D1 está documentado em Markdown em [docs/schema-d1-e-orientacoes.md](./docs/schema-d1-e-orientacoes.md) e como SQL executável em [`schema.sql`](./schema.sql). O banco é criado e vinculado **pelo painel da Cloudflare**: o projeto não tem Wrangler nem arquivo de configuração dele, então nenhum UUID de banco vai para o repositório (era isso que gerava `Error 8000022: Invalid database UUID`).
+- **Feed público** de artigos com busca por título/conteúdo, filtro por etiqueta e paginação por cursor.
+- **Editor de artigos** em Markdown com pré-visualização, rascunho automático no navegador, até 5 etiquetas e histórico de revisões.
+- **HTML e SVG no artigo**: blocos ```` ```html ```` passam por um sanitizador de lista fechada (aceita página completa colada, aproveitando só o `<body>`) e blocos ```` ```svg ```` são exibidos como figura.
+- **Comentários** com nome e avatar do Discord, curtidas, exclusão pelo autor do comentário, pelo autor do artigo ou pelo dono da sala, e denúncia.
+- **Salas** públicas e privadas. A sala privada tem um **código hash** próprio (o id numérico não dá acesso), com política de entrada `open_link` (entra direto) ou `approval` (fila de pedidos). O dono aprova, remove membros com bloqueio, transfere ou exclui a sala — ao excluir, os artigos voltam para a página pública.
+- **Login exclusivo via Discord OAuth2**, com validação de `state`, sessão assinada e cookie `HttpOnly` (`Secure` em HTTPS).
+- **Autorização no servidor** em todas as rotas: propriedade do artigo, participação na sala e moderação de comentários.
+- **SEO e operação**: RSS, `sitemap.xml`, `robots.txt`, metadados Open Graph, `GET /api/health` e cabeçalhos de segurança (CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS).
 
 ---
 
-## Desenvolvimento local
+## 3. Tecnologias
 
-Pré-requisitos: Node.js 20+ e uma aplicação Discord OAuth2 criada (passo 5 do guia abaixo).
+| Camada | Uso |
+| --- | --- |
+| Frontend | HTML5, CSS3 e JavaScript (ES Modules), sem frameworks de UI |
+| Backend | Cloudflare Pages Functions (JavaScript ESM) |
+| Banco | Cloudflare D1 (SQLite relacional) |
+| Autenticação | Discord OAuth2 + cookie de sessão assinado (HMAC) |
+| Build | Nenhum: o projeto é publicado direto pelo Cloudflare Pages |
 
-```powershell
-npm test             # testes unitários (node:test), sem instalar nada
-npm run dev:local    # sobe as Pages Functions localmente em http://127.0.0.1:8788
-npm run test:e2e     # validação ponta a ponta contra esse servidor local
-npm run validate     # npm test + validar-local.mjs na raiz do repositório
+---
+
+## 4. Estrutura
+
+```text
+P26-2B-4D68-AE13-8030-7D10/
+├─ public/           # HTML, CSS, JS do navegador e _headers
+├─ functions/        # Pages Functions (API, OAuth2, artigo server-rendered, RSS e sitemap)
+│  ├─ api/           # auth, articles, comments, rooms, tags, authors e health
+│  ├─ artigo/        # página do artigo renderizada no servidor
+│  └─ _lib/          # sessão, autorização, validação, markdown e utilitários
+├─ migrations/       # migrações SQL do D1 (0001 a 0006)
+├─ seed/             # dados de exemplo para desenvolvimento
+├─ tests/            # testes unitários, servidor local e ponta a ponta
+├─ docs/             # schema do D1, configuração do Cloudflare/Discord e CI
+├─ schema.sql        # schema completo para um banco novo
+├─ AGENTS.md         # agentes de desenvolvimento, harness e skills
+└─ skills/           # SKILL.md usados pelos agentes
 ```
 
-O projeto não tem dependências e não usa Wrangler. Os testes unitários rodam sem banco: o D1 é simulado. Para o ponta a ponta, `tests/server-local.mjs` executa as próprias Pages Functions no Node, com um D1 em `node:sqlite` criado a partir de `schema.sql` e os dois usuários de teste já inseridos — em outro terminal, rode `npm run dev:local` e depois `npm run test:e2e`. O servidor local lê `SESSION_SECRET` do `.env`.
+---
 
-CI e publicação: [docs/ci-e-publicacao.md](./docs/ci-e-publicacao.md).
+## 5. Banco de dados (D1)
 
-As credenciais do Discord e o segredo da sessão ficam apenas no painel do Cloudflare Pages (Settings → Variables and Secrets) para o site publicado. O `.env` (copie de `.env.example`) é usado somente pelos testes locais e nunca vai para o Git nem para a Cloudflare.
+O schema completo está em [`schema.sql`](./schema.sql) e documentado tabela por tabela em [`docs/schema-d1-e-orientacoes.md`](./docs/schema-d1-e-orientacoes.md).
 
-`seed/demo-local.sql` é uma referência de dados de exemplo (usuário demo, sala pública **Desenvolvimento Web**, sala privada **Projeto Integrador**). Use apenas em um banco de desenvolvimento, nunca em produção.
+- **12 tabelas:** `discord_users`, `project_records`, `rooms`, `room_members`, `articles`, `comments`, `article_likes`, `room_join_requests`, `room_blocks`, `article_tags`, `article_revisions`, `comment_reports`.
+- **9 índices** explícitos, incluindo o índice único de `articles.slug`.
+- O banco é criado e vinculado **pelo painel da Cloudflare**. O projeto não usa Wrangler: não existe `wrangler.jsonc` nem `database_id` no repositório, e o binding se chama exatamente **`DB`**.
+- Salas privadas usam `rooms.invite_hash` para guardar o código hash de entrada (24 caracteres hex). A constraint existente continua válida e salas antigas seguem funcionando.
 
-## Como Publicar esta Subpasta no Cloudflare Pages + D1 + Discord OAuth2
+---
 
-Para instruções detalhadas sobre quais valores configurar e exatamente onde inseri-los, siga o guia [Configuração Cloudflare, D1 e Discord](./docs/configuracao-cloudflare-discord.md). O schema completo do banco, em Markdown, está em [Schema do D1 e orientações](./docs/schema-d1-e-orientacoes.md).
+## 6. Rodando localmente
 
-1. No painel da Cloudflare (**Workers & Pages** → **Create** → **Pages** → **Connect to Git**), selecione o seu fork do repositório `Avalia2026-2`. Configure e salve o projeto; o primeiro deploy pode ser feito sem banco.
-2. Configure os parâmetros de build apontando para esta subpasta:
-   - **Root directory (Diretório raiz):** `P26-2B-4D68-AE13-8030-7D10`
-   - **Build command:** *(deixe em branco — HTML/CSS/JS puro)*
+Pré-requisitos: Node.js 20+ e uma aplicação Discord OAuth2 criada.
+
+```bash
+cd P26-2B-4D68-AE13-8030-7D10
+
+# crie um .env (fora do Git) com DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET e SESSION_SECRET
+npm test                 # testes unitários (node:test)
+npm run dev:local        # sobe as Pages Functions em http://127.0.0.1:8788
+npm run test:e2e         # testes ponta a ponta contra o servidor local
+```
+
+O projeto não tem dependências: `tests/server-local.mjs` executa as próprias Pages Functions no Node, com um D1 em `node:sqlite` criado a partir de `schema.sql` e `seed/demo-local.sql`. O `.env` é usado somente pelos testes locais e nunca vai para o Git nem para o Cloudflare.
+
+---
+
+## 7. Publicação (Cloudflare Pages + D1 + Discord)
+
+1. **Pages:** Workers & Pages → Create → Pages → Connect to Git, apontando para o fork do repositório.
+   - **Root directory:** `P26-2B-4D68-AE13-8030-7D10`
+   - **Build command:** *(em branco)*
    - **Build output directory:** `public`
-3. Crie o banco D1 no painel (**Workers & Pages** → **D1** → **Create database**) com o nome `db-p26-2b-4d68-ae13-8030-7d10` e aplique o schema:
-   - Abra o banco → aba **Console** → cole o conteúdo de [`schema.sql`](./schema.sql) → **Execute**.
-   - O mesmo SQL, tabela por tabela, está em [docs/schema-d1-e-orientacoes.md](./docs/schema-d1-e-orientacoes.md).
-4. Associe o banco ao projeto Pages em **Settings** → **Bindings** → **Add** → **D1 database bindings**: variável `DB`, banco `db-p26-2b-4d68-ae13-8030-7d10`.
-   - O projeto não tem arquivo de configuração de Wrangler: o Pages usa as configurações de build do passo 2 e o binding vive no painel, então o deploy não tenta validar UUID nenhum.
-5. **Configuração do Discord OAuth2 (Obrigatório para autenticação real):**
-   - Acesse o **Discord Developer Portal** (https://discord.com/developers/applications) e crie uma nova Application.
-   - Na aba **OAuth2**:
-     - Copie o **Client ID** e o **Client Secret**. Você pode deixar o callback para depois do primeiro deploy: a URL Pages pode ainda não aparecer e o callback não é necessário para publicar.
-   - Para os testes locais, copie `.env.example` para `.env` e preencha `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` e `SESSION_SECRET`.
-   - Para produção, configure esses mesmos nomes no Cloudflare Pages → **Settings** → **Variables and Secrets**. O Client ID é variável; Client Secret e SESSION_SECRET são Secrets. O `.env` local não é enviado ao Cloudflare. Consulte o guia para os comandos e passos detalhados.
-6. Depois de configurar o binding `DB` e as variáveis de produção, faça (ou refaça) o deploy. A URL `pages.dev` fica disponível na página do projeto Pages ou nos detalhes desse deploy.
-7. Com a URL real em mãos, abra a aplicação Discord → **OAuth2** → **Redirects** e adicione `https://SEU-DOMINIO-PAGES.pages.dev/api/auth/discord/callback`. Substitua `SEU-DOMINIO-PAGES` pelo domínio exato mostrado pela Cloudflare e salve. Não precisa fazer outro deploy por causa dessa alteração no Discord. Atualize o campo **URL_CLOUDFLARE** no topo deste `README.md`.
-8. Confira `https://SEU-DOMINIO.pages.dev/api/health` (`status: ok`) e, na raiz do repositório, execute `node validar-local.mjs P26-2B-4D68-AE13-8030-7D10` para validar todos os critérios antes do commit e do Pull Request.
+2. **D1:** Workers & Pages → D1 → Create database, com o nome `db-p26-2b-4d68-ae13-8030-7d10`. Abra o banco → **Console** → cole `schema.sql` → Execute.
+3. **Binding:** no projeto Pages, Settings → Bindings → Add → D1 database bindings, com **Variable name** `DB` apontando para o banco criado.
+4. **Discord:** no [Discord Developer Portal](https://discord.com/developers/applications), crie a Application e em OAuth2 copie o **Client ID** e o **Client Secret**. Em **Redirects**, cadastre exatamente:
+   `https://blog-dxw.pages.dev/api/auth/discord/callback`
+5. **Variáveis e Secrets:** em Settings → Variables and Secrets, configure `DISCORD_CLIENT_ID` (variável), `DISCORD_CLIENT_SECRET` e `SESSION_SECRET` (secrets).
+6. **Deploy:** refaça o deploy. A aplicação fica disponível em <https://blog-dxw.pages.dev> e o diagnóstico em `/api/health` deve responder `status: ok`.
 
-## Uso das salas
+---
 
-Qualquer pessoa autenticada pode criar uma sala pública ou privada. Salas públicas podem ser abertas e acompanhadas por todos. Sala privada funciona **pelo código da sala**: ao criá-la, o dono recebe um hash de 24 caracteres hex (`sha256` do id da sala com um nonce aleatório), que aparece também no cartão da sala e pode ser copiado. Quem tiver o código usa o campo de entrada do painel lateral e entra (ou envia um pedido, se o dono escolher “somente quem eu aprovar”). O id numérico de uma sala privada responde 400 e não dá acesso; o de uma sala pública continua sendo o identificador usado para entrar e abrir a sala. Os artigos publicados dentro de uma sala privada, assim como seus comentários, ficam restritos aos membros.
+## 8. Validação
 
-## Markdown
+Na raiz do repositório:
 
-O editor aceita títulos (`#`), listas, citações (`>`), blocos cercados por três crases, código inline (`` `código` ``), **negrito**, *itálico*, links HTTP/HTTPS e **tabelas** (colunas separadas por `|` e uma linha de `---` abaixo do cabeçalho). A visualização prévia usa o mesmo renderizador do artigo.
+```bash
+node validar-local.mjs P26-2B-4D68-AE13-8030-7D10
+```
 
-**HTML** entra em blocos ```` ```html ````. Pode ser um trecho (`<h2>…</h2><p>…</p>`) ou a página inteira colada de um arquivo `.html`: quando o bloco traz `<html>`/`<body>`, só o conteúdo do `<body>` é aproveitado e o `<head>` inteiro (`<title>`, `<meta>`, `<style>`) é descartado — o artigo herda a tipografia e as cores do blog em vez das do documento. O sanitizador usa uma lista fechada: títulos, parágrafos, listas, tabelas, `section`/`article`/`header`/`footer`/`main`/`nav`/`aside`, `figure`/`figcaption`, `details`, links e imagens `https`, além de SVG, são mantidos; `script`, `style`, `iframe`, `object`, `form` e atributos `on*`/`style` são removidos, e URL fora de `http(s)` é descartada. Fora de um bloco ```` ```html ````, HTML digitado no texto continua aparecendo como texto.
+O script confere licença MIT, chave única no README e no rodapé da interface, `AGENTS.md` com pelo menos 3 agentes (um de teste/validação), pasta `skills/`, frontend Vanilla JS, ausência de frameworks proibidos e o deploy online.
 
-Blocos ```` ```svg ```` são exibidos como imagem (o navegador não executa scripts dentro de `<img>`), com limite de 40.000 caracteres e altura máxima de 70% da tela. O SVG deve começar em `<svg` e terminar em `</svg>`; caso contrário volta a aparecer como código. Um `<svg>` inline dentro do bloco ```` ```html ```` também é renderizado.
+Também é possível validar o código localmente:
 
-## Busca, etiquetas e paginação
+```bash
+cd P26-2B-4D68-AE13-8030-7D10
+npm test
+npm run test:e2e
+```
 
-O feed carrega 10 artigos por vez com **Carregar mais** (cursor por data/id). A busca usa `?q=` (2 a 80 caracteres, título e conteúdo) e as etiquetas usam `?tag=`; o painel lateral lista as etiquetas mais usadas e o editor aceita até 5 por artigo.
+---
 
-## Histórico de edições
+## 9. Documentação de apoio
 
-Cada `PUT` em um artigo guarda o texto anterior em `article_revisions`. O botão **Histórico** no editor lista as versões (data e autor) e permite carregar uma delas de volta — nada é sobrescrito até você salvar.
+- [`AGENTS.md`](./AGENTS.md) — agentes, harness e skills usados no desenvolvimento.
+- [`docs/schema-d1-e-orientacoes.md`](./docs/schema-d1-e-orientacoes.md) — schema completo e preparação do D1.
+- [`docs/configuracao-cloudflare-discord.md`](./docs/configuracao-cloudflare-discord.md) — configuração do Cloudflare Pages, D1 e Discord.
+- [`docs/ci-e-publicacao.md`](./docs/ci-e-publicacao.md) — CI e fluxo de publicação.
 
-## Salas: sair, transferir e excluir
+---
 
-Quem participa pode sair da sala (e pedir entrada de novo depois). O dono transfere a sala para outro membro ou exclui; ao excluir, os artigos **não** somem, voltam para a página pública do blog.
+## 10. Licença
 
-## Saúde, RSS e SEO
-
-- `GET /api/health` responde `status: ok` quando o D1 responde.
-- `/feed.xml` publica os 20 artigos mais recentes visíveis sem login; artigos de sala privada ficam de fora.
-- `/sitemap.xml` e `/robots.txt` para indexação; artigos de sala privada saem com `noindex`.
+Distribuído sob a licença MIT. Veja [`LICENSE`](./LICENSE).
