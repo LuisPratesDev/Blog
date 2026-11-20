@@ -74,15 +74,20 @@ function roomBadge(visibility) {
   return visibility === "private" ? "◆" : "#";
 }
 
-function focusInvite(roomId, message) {
-  byId("roomInvite").value = roomId;
+function focusInvite(value, message) {
+  byId("roomInvite").value = value;
   setMessage(byId("roomMessage"), message);
   byId("roomInvite").focus();
 }
 
 function openRoom(room) {
   if (room.visibility === "private" && !room.is_member) {
-    focusInvite(room.id, "Sala privada: o ID já está preenchido, clique em “Entrar com o ID” (o dono pode exigir aprovação).");
+    focusInvite(
+      room.room_code || "",
+      room.room_code
+        ? "Sala privada: o código já está preenchido, clique em “Entrar com o código” (o dono pode exigir aprovação)."
+        : "Sala privada: peça o código da sala para o dono.",
+    );
     return;
   }
   state.roomId = String(room.id);
@@ -94,10 +99,43 @@ function openRoom(room) {
 
 function requestJoin(room) {
   if (room.visibility === "private") {
-    focusInvite(room.id, "Sala privada: o ID já está preenchido, clique em “Entrar com o ID” (o dono pode exigir aprovação).");
+    focusInvite(
+      room.room_code || "",
+      room.room_code
+        ? "Sala privada: o código já está preenchido, clique em “Entrar com o código” (o dono pode exigir aprovação)."
+        : "Sala privada: peça o código da sala para o dono.",
+    );
     return;
   }
   joinRoom(room.id);
+}
+
+// O dono vê o código hash da própria sala privada para compartilhar no lugar do id.
+function roomCodeRow(room) {
+  const copy = element("button", {
+    className: "room-code-copy",
+    text: "Copiar",
+    attrs: { type: "button", title: "Copiar o código da sala", "aria-label": `Copiar o código da sala ${room.name}` },
+  });
+  copy.addEventListener("click", async () => {
+    if (!navigator.clipboard) {
+      byId("roomInvite").value = room.room_code;
+      byId("roomInvite").focus();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(room.room_code);
+      copy.textContent = "Copiado";
+    } catch {
+      byId("roomInvite").value = room.room_code;
+      byId("roomInvite").focus();
+    }
+  });
+  return element("p", { className: "room-code" }, [
+    element("span", { className: "room-code-label", text: "Código" }),
+    element("code", { text: room.room_code }),
+    copy,
+  ]);
 }
 
 function renderRooms() {
@@ -132,7 +170,7 @@ function renderRooms() {
     if (state.user && !room.is_member) {
       controls.append(element("button", {
         className: "room-join",
-        text: room.visibility === "public" ? "Entrar" : "Entrar com ID",
+        text: room.visibility === "public" ? "Entrar" : "Entrar com código",
         attrs: { type: "button" },
         on: { click: () => requestJoin(room) },
       }));
@@ -157,7 +195,11 @@ function renderRooms() {
     }
 
     const selected = String(state.roomId) === String(room.id);
-    container.append(element("div", { className: `room-item${selected ? " selected" : ""}` }, [name, controls]));
+    const item = element("div", { className: `room-item${selected ? " selected" : ""}` }, [name, controls]);
+    if (state.user && room.owner_id === state.user.userId && room.visibility === "private" && room.room_code) {
+      item.append(roomCodeRow(room));
+    }
+    container.append(item);
   }
 }
 
@@ -759,9 +801,9 @@ async function openHistory() {
   }
 }
 
-async function joinRoom(id) {
+async function joinRoom(idOrCode) {
   try {
-    const result = await api(`/api/rooms/${id}/join`, { method: "POST", body: "{}" });
+    const result = await api(`/api/rooms/${encodeURIComponent(idOrCode)}/join`, { method: "POST", body: "{}" });
     setMessage(
       byId("roomMessage"),
       result.pending ? "Pedido enviado. O dono da sala precisa aprovar." : "Você entrou na sala.",
@@ -856,13 +898,14 @@ function bindEvents() {
       });
       byId("roomCreateForm").reset();
       byId("roomCreateForm").hidden = true;
-      if (visibility === "private") {
+      if (visibility === "private" && result.code) {
         const box = byId("inviteResult");
         box.hidden = false;
         box.replaceChildren(
-          document.createTextNode("Sala privada criada. Compartilhe apenas o ID:"),
-          element("code", { text: String(result.id) }),
+          document.createTextNode("Sala privada criada. Guarde e compartilhe só este código:"),
+          element("code", { text: result.code }),
         );
+        byId("roomInvite").value = result.code;
       }
       await loadRooms();
       setMessage(byId("roomMessage"), "Sala criada com sucesso.", true);
@@ -875,12 +918,13 @@ function bindEvents() {
 
   byId("joinRoomForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const id = byId("roomInvite").value.trim();
-    if (!/^\d+$/.test(id)) {
-      setMessage(byId("roomMessage"), "Informe o ID da sala.");
+    const value = byId("roomInvite").value.trim().toLowerCase();
+    // Sala pública usa o número; sala privada usa o código hash (24 hex, ou 36 em salas antigas).
+    if (!/^\d+$/.test(value) && !/^[a-f0-9]{18,64}$/.test(value)) {
+      setMessage(byId("roomMessage"), "Informe o código da sala privada ou o número de uma sala pública.");
       return;
     }
-    await joinRoom(id);
+    await joinRoom(value);
   });
 
   byId("clearFilterButton").addEventListener("click", () => {

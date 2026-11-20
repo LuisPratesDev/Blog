@@ -1,6 +1,6 @@
 -- Dados de exemplo para o D1 LOCAL (nunca aplique em produção).
 -- Dados de exemplo (referência). Aplique pelo Console do D1, apenas em banco de desenvolvimento.
--- Sala privada: id 2 (entra-se só com o ID; não há código de convite)
+-- Sala privada: código 9c1d7a4be52f0381c6a4d7e2 (o id numérico não entra)
 
 INSERT OR IGNORE INTO discord_users (user_id, username, avatar, updated_at)
 VALUES ('100000000000000001', 'Ana Beatriz', NULL, CURRENT_TIMESTAMP);
@@ -8,7 +8,7 @@ VALUES ('100000000000000001', 'Ana Beatriz', NULL, CURRENT_TIMESTAMP);
 INSERT OR IGNORE INTO rooms (id, owner_id, name, description, visibility, invite_hash, created_at)
 VALUES
   (1, '100000000000000001', 'Desenvolvimento Web', 'Front-end, back-end e tudo que fica no meio.', 'public', NULL, datetime('now', '-6 days')),
-  (2, '100000000000000001', 'Projeto Integrador', 'Sala privada do grupo para alinhar a entrega.', 'private', 'qNlWRc3ls6c2a0D/CECra9rQXex+bCIdhv1QDFc5fmA=', datetime('now', '-4 days'));
+  (2, '100000000000000001', 'Projeto Integrador', 'Sala privada do grupo para alinhar a entrega.', 'private', '9c1d7a4be52f0381c6a4d7e2', datetime('now', '-4 days'));
 
 INSERT OR IGNORE INTO room_members (room_id, user_id, joined_at)
 VALUES

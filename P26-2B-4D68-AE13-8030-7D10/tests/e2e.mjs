@@ -134,13 +134,21 @@ try {
     body: JSON.stringify({ name: `Privada ${token}`, visibility: "private" }),
   });
   created.rooms.push(privada.body.id);
-  check("sala privada não devolve código de convite", privada.body.inviteCode === undefined);
+  const codigoPrivada = privada.body.code;
+  check("sala privada devolve código hash de 24 hex", /^[a-f0-9]{24}$/.test(codigoPrivada || ""), String(codigoPrivada));
+  check("código da sala privada não é o id numérico", codigoPrivada !== String(privada.body.id));
+  const salasDaAna = (await call("/api/rooms", ana)).body.rooms || [];
+  const salasDoBruno = (await call("/api/rooms", bruno)).body.rooms || [];
+  check("dono vê o código da própria sala", salasDaAna.find((item) => item.id === privada.body.id)?.room_code === codigoPrivada);
+  check("quem não é dono não vê o código", !salasDoBruno.find((item) => item.id === privada.body.id)?.room_code);
+  check("ID numérico não entra em sala privada", (await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: "{}" })).status === 400);
+  check("código desconhecido não encontra sala", (await call(`/api/rooms/${"0".repeat(24)}/join`, bruno, { method: "POST", body: "{}" })).status === 404);
   await call(`/api/rooms/${privada.body.id}`, ana, { method: "PATCH", body: JSON.stringify({ joinPolicy: "approval" }) });
-  const pedidoPrivado = await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: "{}" });
-  check("sala privada aceita pedido só com o ID", pedidoPrivado.body.pending === true, JSON.stringify(pedidoPrivado.body));
+  const pedidoPrivado = await call(`/api/rooms/${codigoPrivada}/join`, bruno, { method: "POST", body: "{}" });
+  check("sala privada aceita pedido com o código", pedidoPrivado.body.pending === true, JSON.stringify(pedidoPrivado.body));
   await call(`/api/rooms/${privada.body.id}/requests`, ana, { method: "POST", body: JSON.stringify({ userId: BRUNO.userId, action: "approve" }) });
   await call(`/api/rooms/${privada.body.id}/members?userId=${BRUNO.userId}`, ana, { method: "DELETE" });
-  check("removido não volta pela fila", (await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: "{}" })).status === 403);
+  check("removido não volta pelo código", (await call(`/api/rooms/${codigoPrivada}/join`, bruno, { method: "POST", body: "{}" })).status === 403);
   check("fila vazia após bloqueio", (await call(`/api/rooms/${privada.body.id}/requests`, ana)).body.requests?.length === 0);
   check("dono libera de novo", (await call(`/api/rooms/${privada.body.id}/blocks?userId=${BRUNO.userId}`, ana, { method: "DELETE" })).status === 200);
 

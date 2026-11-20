@@ -13,10 +13,23 @@ export function resolveJoin({ isMember, visibility, joinPolicy }) {
   return "joined";
 }
 
-// A tabela rooms exige invite_hash em salas privadas (constraint do schema).
-// O valor é um nonce aleatório interno, nunca exibido nem conferido no login.
-export function generateRoomNonce() {
-  return randomHex(18);
+// Código de entrada da sala privada: hash SHA-256 do ID da sala com um nonce
+// aleatório. 24 caracteres hex (96 bits) não são adivinháveis nem sequenciais,
+// e são o que o dono compartilha no lugar do ID numérico.
+export const ROOM_CODE_LENGTH = 24;
+// Aceita também códigos antigos (nonce de 36 hex) já gravados no banco.
+export const ROOM_CODE_PATTERN = /^[a-f0-9]{18,64}$/;
+
+export async function generateRoomCode(roomId) {
+  const seed = `sala-privada:${roomId}:${randomHex(16)}`;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
+  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return hex.slice(0, ROOM_CODE_LENGTH);
+}
+
+export function normalizeRoomCode(value) {
+  const code = String(value ?? "").trim().toLowerCase();
+  return ROOM_CODE_PATTERN.test(code) ? code : "";
 }
 
 // Usado pelos endpoints de gestão da sala: devolve { response } em caso de erro ou { user, room }.

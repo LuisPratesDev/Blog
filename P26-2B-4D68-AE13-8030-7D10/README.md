@@ -13,7 +13,7 @@
 - Feed público de artigos e páginas individuais de autor, com busca por texto, etiquetas e paginação por cursor.
 - Editor de artigos com escrita em Markdown, pré-visualização, rascunho automático no navegador, etiquetas e histórico de revisões.
 - Comentários com nome e avatar do Discord, em ordem cronológica, curtidas por usuário, exclusão pelo autor/artigo/dono da sala e denúncia.
-- Salas públicas e privadas: salas privadas exigem convite, e seus artigos e comentários são visíveis somente aos membros. Membro pode sair, o dono pode transferir ou excluir a sala (os artigos voltam para a página pública).
+- Salas públicas e privadas: cada sala privada tem um **código hash** próprio (o id numérico não serve para entrar), e seus artigos e comentários são visíveis somente aos membros. Membro pode sair, o dono pode transferir ou excluir a sala (os artigos voltam para a página pública).
 - Controle de entrada por política (`open_link` ou `approval`) com fila de pedidos, remoção com bloqueio e liberação posterior.
 - Autenticação Discord OAuth2 com validação `state`, sessão assinada e cookie `HttpOnly` (e `Secure` em https).
 - Regras de propriedade, participação em salas e autorização verificadas nas Pages Functions; dados persistidos no Cloudflare D1.
@@ -74,13 +74,13 @@ Para instruções detalhadas sobre quais valores configurar e exatamente onde in
 
 ## Uso das salas
 
-Qualquer pessoa autenticada pode criar uma sala pública ou privada. Salas públicas podem ser abertas e acompanhadas por todos. Sala privada funciona **só pelo ID**: quem tiver o número da sala usa o campo de entrada do painel lateral e entra (ou envia um pedido, se o dono escolher “somente quem eu aprovar”). Não existe código de convite. Os artigos publicados dentro de uma sala privada, assim como seus comentários, ficam restritos aos membros.
+Qualquer pessoa autenticada pode criar uma sala pública ou privada. Salas públicas podem ser abertas e acompanhadas por todos. Sala privada funciona **pelo código da sala**: ao criá-la, o dono recebe um hash de 24 caracteres hex (`sha256` do id da sala com um nonce aleatório), que aparece também no cartão da sala e pode ser copiado. Quem tiver o código usa o campo de entrada do painel lateral e entra (ou envia um pedido, se o dono escolher “somente quem eu aprovar”). O id numérico de uma sala privada responde 400 e não dá acesso; o de uma sala pública continua sendo o identificador usado para entrar e abrir a sala. Os artigos publicados dentro de uma sala privada, assim como seus comentários, ficam restritos aos membros.
 
 ## Markdown
 
 O editor aceita títulos (`#`), listas, citações (`>`), blocos cercados por três crases, código inline (`` `código` ``), **negrito**, *itálico*, links HTTP/HTTPS e **tabelas** (colunas separadas por `|` e uma linha de `---` abaixo do cabeçalho). A visualização prévia usa o mesmo renderizador do artigo.
 
-**HTML** entra em blocos ```` ```html ````. Ele é sanitizado por uma lista fechada: títulos, parágrafos, listas, tabelas, `figure`/`figcaption`, `details`, links e imagens `https`, além de SVG, são mantidos; `script`, `style`, `iframe`, `object`, `form` e atributos `on*`/`style` são removidos, e URL fora de `http(s)` é descartada. Fora de um bloco ```` ```html ````, HTML digitado no texto continua aparecendo como texto.
+**HTML** entra em blocos ```` ```html ````. Pode ser um trecho (`<h2>…</h2><p>…</p>`) ou a página inteira colada de um arquivo `.html`: quando o bloco traz `<html>`/`<body>`, só o conteúdo do `<body>` é aproveitado e o `<head>` inteiro (`<title>`, `<meta>`, `<style>`) é descartado — o artigo herda a tipografia e as cores do blog em vez das do documento. O sanitizador usa uma lista fechada: títulos, parágrafos, listas, tabelas, `section`/`article`/`header`/`footer`/`main`/`nav`/`aside`, `figure`/`figcaption`, `details`, links e imagens `https`, além de SVG, são mantidos; `script`, `style`, `iframe`, `object`, `form` e atributos `on*`/`style` são removidos, e URL fora de `http(s)` é descartada. Fora de um bloco ```` ```html ````, HTML digitado no texto continua aparecendo como texto.
 
 Blocos ```` ```svg ```` são exibidos como imagem (o navegador não executa scripts dentro de `<img>`), com limite de 40.000 caracteres e altura máxima de 70% da tela. O SVG deve começar em `<svg` e terminar em `</svg>`; caso contrário volta a aparecer como código. Um `<svg>` inline dentro do bloco ```` ```html ```` também é renderizado.
 

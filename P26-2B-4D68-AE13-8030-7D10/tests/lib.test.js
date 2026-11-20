@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import { SLUG_PATTERN, generateSlug, parseArticleInput } from "../functions/_lib/articles.js";
 import { renderMarkdown, sanitizeHtml } from "../public/js/markdown.js";
 import { excerpt } from "../public/js/text.js";
-import { JOIN_POLICIES, canViewRoom, generateRoomNonce, resolveJoin } from "../functions/_lib/rooms.js";
+import {
+  JOIN_POLICIES, ROOM_CODE_PATTERN, canViewRoom, generateRoomCode, normalizeRoomCode, resolveJoin,
+} from "../functions/_lib/rooms.js";
 import {
   SESSION_COOKIE, clearedCookie, getSession, readCookie, serializeCookie, sessionCookie, signSession,
 } from "../functions/_lib/session.js";
@@ -66,12 +68,31 @@ describe("parseArticleInput", () => {
   });
 });
 
-describe("nonce interno da sala privada", () => {
-  it("gera 36 caracteres hex distintos (só para a constraint do schema)", () => {
-    const primeiro = generateRoomNonce();
-    const segundo = generateRoomNonce();
-    assert.match(primeiro, /^[a-f0-9]{36}$/);
-    assert.notEqual(primeiro, segundo);
+describe("código hash da sala privada", () => {
+  it("gera 24 caracteres hex a partir do id da sala", async () => {
+    const primeiro = await generateRoomCode(2);
+    assert.match(primeiro, /^[a-f0-9]{24}$/);
+    assert.ok(ROOM_CODE_PATTERN.test(primeiro));
+  });
+
+  it("não repete o código entre salas nem entre gerações", async () => {
+    const codigos = new Set([
+      await generateRoomCode(2), await generateRoomCode(2), await generateRoomCode(3),
+    ]);
+    assert.equal(codigos.size, 3);
+  });
+
+  it("normaliza o código digitado com espaços e maiúsculas", () => {
+    const codigo = "a1b2c3d4e5f60718293a4b5c";
+    assert.equal(normalizeRoomCode(`  ${codigo.toUpperCase()} `), codigo);
+    assert.equal(normalizeRoomCode("abc"), "");
+    assert.equal(normalizeRoomCode("<script>"), "");
+  });
+
+  it("aceita o nonce de 36 hex das salas privadas antigas", () => {
+    assert.ok(ROOM_CODE_PATTERN.test("a".repeat(36)));
+    assert.equal(ROOM_CODE_PATTERN.test("a".repeat(17)), false);
+    assert.equal(ROOM_CODE_PATTERN.test("a".repeat(65)), false);
   });
 });
 
@@ -380,6 +401,33 @@ describe("HTML sanitizado no artigo", () => {
   it("aceita SVG inline dentro do bloco html", () => {
     const html = renderMarkdown("```html\n<svg viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#2f725f\"/></svg>\n```");
     assert.match(html, /<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#2f725f"><\/svg>/);
+  });
+
+  it("documento HTML completo vira só o conteúdo do body", () => {
+    const documento = [
+      "<!DOCTYPE html>",
+      '<html lang="pt-BR">',
+      "<head>",
+      "  <meta charset=\"UTF-8\">",
+      "  <title>Interfaces em C#</title>",
+      "  <style>body { display: none }</style>",
+      "</head>",
+      "<body>",
+      "  <main><article><header><h1>Interfaces em C#</h1></header>",
+      "    <section><h2>O que é</h2><p>Um contrato.</p></section>",
+      "  </article></main>",
+      "</body>",
+      "</html>",
+    ].join("\n");
+    const html = renderMarkdown("```html\n" + documento + "\n```");
+    // <main> vira <div> para não aninhar duas <main> na página do artigo.
+    assert.match(html, /<div><article><header><h1>Interfaces em C#<\/h1><\/header>/);
+    assert.match(html, /<section><h2>O que é<\/h2><p>Um contrato.<\/p><\/section>/);
+    assert.equal(html.includes("<main>"), false);
+    assert.equal(html.includes("&lt;html"), false);
+    assert.equal(html.includes("<!DOCTYPE"), false);
+    assert.equal(html.includes("Interfaces em C#<\/title>"), false);
+    assert.equal(html.includes("display: none"), false);
   });
 
   it("remove script, style e iframe com o conteúdo", () => {

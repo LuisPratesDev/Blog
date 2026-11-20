@@ -62,7 +62,8 @@
             <ul>
               <li><strong>Markdown</strong>: <code># título</code>, <code>**negrito**</code>, <code>*itálico*</code>, <code>`código`</code>, listas, citações e <code>[links](https://exemplo.com)</code>.</li>
               <li><strong>Tabelas</strong>: separe as colunas com <code>|</code> e coloque uma linha de <code>---</code> abaixo do cabeçalho. A prévia já mostra a tabela montada.</li>
-              <li><strong>HTML</strong>: comece o bloco com <code>```html</code> para escrever HTML. Ele é sanitizado: títulos, parágrafos, listas, tabelas, links (<code>https</code>), imagens (<code>https</code>), <code>figure</code>, <code>details</code> e SVG são aceitos; <code>script</code>, <code>style</code>, <code>iframe</code> e atributos <code>on*</code> são removidos.</li>
+              <li><strong>HTML</strong>: comece o bloco com <code>```html</code> para escrever HTML. Pode colar a página inteira: só o conteúdo do <code>&lt;body&gt;</code> é usado — <code>&lt;head&gt;</code>, <code>&lt;title&gt;</code> e <code>&lt;style&gt;</code> ficam de fora, e o artigo herda o estilo do blog.</li>
+              <li><strong>O que o sanitizador mantém</strong>: títulos, parágrafos, listas, tabelas, <code>section</code>, <code>article</code>, <code>header</code>, <code>footer</code>, links (<code>https</code>), imagens (<code>https</code>), <code>figure</code>, <code>details</code> e SVG. <code>script</code>, <code>iframe</code>, <code>form</code> e atributos <code>on*</code>/<code>style</code> são removidos.</li>
               <li><strong>SVG</strong>: <code>```svg</code> desenha o SVG como figura; um <code>&lt;svg&gt;</code> dentro do bloco <code>```html</code> também aparece.</li>
             </ul>
           </details>
@@ -114,11 +115,11 @@
 
       <section class="side-card rooms-card">
         <div class="side-heading"><div><p class="eyebrow">CONVERSAS EM GRUPO</p><h2>Salas</h2></div><button class="icon-button" id="newRoomButton" type="button" aria-label="Criar sala" hidden>+</button></div>
-        <p class="side-copy">Espaços para reunir artigos por tema. Para entrar numa sala privada, basta o ID dela.</p>
+        <p class="side-copy">Espaços para reunir artigos por tema. Sala privada entra com o código dela (um hash); sala pública, com o número dela.</p>
         <form class="join-form" id="joinRoomForm">
-          <label class="sr-only" for="roomInvite">ID da sala</label>
-          <input class="text-input" id="roomInvite" placeholder="ID da sala" inputmode="numeric">
-          <button class="button button-small" type="submit">Entrar com o ID</button>
+          <label class="sr-only" for="roomInvite">Código da sala privada</label>
+          <input class="text-input" id="roomInvite" placeholder="Código ou número da sala" autocapitalize="none" autocorrect="off" spellcheck="false">
+          <button class="button button-small" type="submit">Entrar com o código</button>
         </form>
         <p class="form-message" id="roomMessage" role="status"></p>
         <div class="room-list" id="roomList"><p class="muted">Carregando salas...</p></div>
@@ -130,7 +131,7 @@
           <label class="field-label" for="roomVisibility">Visibilidade</label>
           <select class="text-input" id="roomVisibility">
             <option value="public">Pública — qualquer pessoa pode participar</option>
-            <option value="private">Privada — só entra quem tiver o ID</option>
+            <option value="private">Privada — só entra quem tiver o código</option>
           </select>
           <button class="button button-primary button-full" type="submit">Criar sala</button>
         </form>
@@ -145,7 +146,7 @@
         <p class="side-copy" id="roomAdminName"></p>
         <label class="field-label" for="roomPolicy">Quem pode entrar</label>
         <select class="text-input" id="roomPolicy" aria-describedby="roomPolicyHint" title="Escolha se o link entra direto ou se cada pessoa precisa da sua aprovação">
-          <option value="open_link">Qualquer pessoa com o ID</option>
+          <option value="open_link">Qualquer pessoa com o código</option>
           <option value="approval">Somente quem eu aprovar</option>
         </select>
         <p class="hint" id="roomPolicyHint"></p>        <p class="eyebrow admin-eyebrow">PEDIDOS PENDENTES</p>

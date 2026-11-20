@@ -20,6 +20,8 @@ const ALLOWED_TAGS = new Set([
   "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "ins",
   "li", "mark", "ol", "p", "pre", "s", "small", "span", "strong", "sub", "summary", "sup",
   "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u", "ul",
+  // Estrutura de página
+  "address", "article", "aside", "footer", "header", "hgroup", "nav", "section", "time",
   // SVG
   "svg", "g", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "text",
   "tspan", "defs", "lineargradient", "radialgradient", "stop", "clippath", "symbol", "use",
@@ -27,6 +29,9 @@ const ALLOWED_TAGS = new Set([
 ]);
 
 const VOID_TAGS = new Set(["br", "hr", "img", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "stop", "use"]);
+
+// <main> dentro da <main> da página não é válido: vira <div> e o conteúdo fica.
+const TAG_ALIASES = { main: "div" };
 
 // Blocos que nunca podem entrar, nem como texto: o conteúdo deles é descartado.
 const DROPPED_BLOCKS = "script|style|iframe|object|embed|template|noscript|link|meta|base|form|input|button|textarea|select";
@@ -36,7 +41,7 @@ const ALLOWED_ATTRS = new Set([
   "viewbox", "xmlns", "d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
   "stroke-dasharray", "opacity", "fill-rule", "clip-rule", "cx", "cy", "r", "rx", "ry",
   "x", "y", "x1", "y1", "x2", "y2", "points", "transform", "text-anchor", "font-size",
-  "font-family", "font-weight", "aria-label", "aria-hidden", "colspan", "rowspan",
+  "font-family", "font-weight", "aria-label", "aria-hidden", "colspan", "rowspan", "datetime",
 ]);
 
 const SAFE_URL = /^https?:\/\//i;
@@ -62,9 +67,19 @@ function filterAttributes(name, raw) {
   return output;
 }
 
+// Documento HTML completo (colado inteiro) vira só o conteúdo do <body>: o
+// <head> com <title>/<style> e a marcação html/head/body não entram no artigo.
+function unwrapDocument(source) {
+  const body = source.match(/<body\b[^>]*>([\s\S]*?)(?:<\/body\s*>|$)/i);
+  const inner = body ? body[1] : source.replace(/<head\b[^>]*>[\s\S]*?<\/head\s*>/gi, "");
+  return inner
+    .replace(/<!doctype\b[^>]*>/gi, "")
+    .replace(/<\/?(?:html|head|body)\b[^>]*>/gi, "");
+}
+
 // Remove blocos perigosos inteiros (inclusive o conteúdo) antes de validar as tags.
 export function sanitizeHtml(html) {
-  const source = String(html ?? "")
+  const source = unwrapDocument(String(html ?? ""))
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(new RegExp(`<\\s*(${DROPPED_BLOCKS})\\b[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>`, "gi"), "")
     .replace(new RegExp(`<\\s*(${DROPPED_BLOCKS})\\b[^>]*>`, "gi"), "")
@@ -78,7 +93,7 @@ export function sanitizeHtml(html) {
     lastIndex = match.index + match[0].length;
 
     const closing = match[1] === "/";
-    const name = match[2].toLowerCase();
+    const name = TAG_ALIASES[match[2].toLowerCase()] || match[2].toLowerCase();
 
     if (!ALLOWED_TAGS.has(name)) {
       // Tag desconhecida vira texto: o autor vê literalmente o que escreveu.
