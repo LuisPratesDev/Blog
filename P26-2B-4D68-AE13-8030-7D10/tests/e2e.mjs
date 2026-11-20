@@ -134,15 +134,25 @@ try {
     body: JSON.stringify({ name: `Privada ${token}`, visibility: "private" }),
   });
   created.rooms.push(privada.body.id);
+  check("sala privada não devolve código de convite", privada.body.inviteCode === undefined);
   await call(`/api/rooms/${privada.body.id}`, ana, { method: "PATCH", body: JSON.stringify({ joinPolicy: "approval" }) });
-  await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: JSON.stringify({ inviteCode: privada.body.inviteCode }) });
+  const pedidoPrivado = await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: "{}" });
+  check("sala privada aceita pedido só com o ID", pedidoPrivado.body.pending === true, JSON.stringify(pedidoPrivado.body));
   await call(`/api/rooms/${privada.body.id}/requests`, ana, { method: "POST", body: JSON.stringify({ userId: BRUNO.userId, action: "approve" }) });
   await call(`/api/rooms/${privada.body.id}/members?userId=${BRUNO.userId}`, ana, { method: "DELETE" });
-  check("removido não volta pela fila", (await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: JSON.stringify({ inviteCode: privada.body.inviteCode }) })).status === 403);
+  check("removido não volta pela fila", (await call(`/api/rooms/${privada.body.id}/join`, bruno, { method: "POST", body: "{}" })).status === 403);
   check("fila vazia após bloqueio", (await call(`/api/rooms/${privada.body.id}/requests`, ana)).body.requests?.length === 0);
   check("dono libera de novo", (await call(`/api/rooms/${privada.body.id}/blocks?userId=${BRUNO.userId}`, ana, { method: "DELETE" })).status === 200);
 
-  // 7. SEO
+  // 7. Exclusão pelo próprio autor
+  const proprio = await call("/api/articles", bruno, {
+    method: "POST",
+    body: JSON.stringify({ title: `Apagar ${token}`, body: "Conteúdo temporário" }),
+  });
+  check("autor exclui o próprio artigo", (await call(`/api/articles/${proprio.body.id}`, bruno, { method: "DELETE" })).status === 200);
+  check("artigo excluído some do feed", !(await call("/api/articles?limit=50")).body.articles.some((item) => item.id === proprio.body.id));
+
+  // 8. SEO
   const artigoPrivado = await call("/api/articles", ana, {
     method: "POST",
     body: JSON.stringify({ title: `Segredo ${token}`, body: "Conteúdo privado", roomId: privada.body.id }),

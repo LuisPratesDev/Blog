@@ -188,11 +188,11 @@ Salas de artigos. A sala é o limite de visibilidade de artigos e comentários.
 | `name` | TEXT | NOT NULL | |
 | `description` | TEXT | NOT NULL, default `''` | |
 | `visibility` | TEXT | NOT NULL, `CHECK IN ('public','private')` | |
-| `invite_hash` | TEXT | NULL em sala pública | SHA-256 do código de convite |
-| `join_policy` | TEXT | NOT NULL, default `'open_link'` | `open_link` entra com o convite; `approval` fica na fila até o dono aprovar |
+| `invite_hash` | TEXT | NULL em sala pública | Nonce interno aleatório (legado): não é exibido nem conferido, só satisfaz a constraint abaixo |
+| `join_policy` | TEXT | NOT NULL, default `'open_link'` | `open_link` entra só com o ID da sala; `approval` fica na fila até o dono aprovar |
 | `created_at` | TEXT | NOT NULL, default `CURRENT_TIMESTAMP` | |
 
-Restrição composta: sala `private` **precisa** de `invite_hash`; sala `public` **não pode** ter convite.
+Restrição composta: sala `private` **precisa** de `invite_hash`; sala `public` **não pode** ter valor. O app grava um nonce aleatório em salas privadas — o ingresso é feito apenas pelo ID da sala, sem código de convite.
 
 ### `room_members`
 Quem participa de cada sala. A PK composta impede duplicidade.
@@ -247,7 +247,7 @@ Fila de pedidos de entrada em salas com `join_policy = 'approval'`.
 | `created_at` | TEXT | NOT NULL, default `CURRENT_TIMESTAMP` |
 
 ### `room_blocks`
-Bloqueio de entrada. Remover um membro grava aqui, e a pessoa não volta nem pelo convite nem pela fila; o dono libera com `DELETE /api/rooms/:id/blocks?userId=…`.
+Bloqueio de entrada. Remover um membro grava aqui, e a pessoa não volta nem pelo ID da sala nem pela fila; o dono libera com `DELETE /api/rooms/:id/blocks?userId=…`.
 
 | Coluna | Tipo | Regras |
 | --- | --- | --- |
@@ -327,7 +327,7 @@ O D1 aplica chaves estrangeiras, então a ordem de criação importa: usuários 
 
 - **`articles.slug` é NULL no banco, mas o código sempre preenche.** O índice único permite vários `NULL`, o que é inofensivo porque a API gera o slug em todo `POST`.
 - **`room_id` e `edited_by` em `article_revisions` não têm FK** de propósito: o histórico não deve sumir quando a sala é excluída ou o usuário é apagado.
-- **`invite_hash` guarda SHA-256**, nunca o código em texto puro.
+- **`invite_hash` guarda um nonce aleatório**, nunca um segredo compartilhável: o ingresso em sala privada usa só o ID.
 - **Datas são TEXT em UTC** (`CURRENT_TIMESTAMP` do SQLite). Não troque por `INTEGER`/epoch sem ajustar todas as consultas.
 - **Não existe tabela de sessões.** A sessão é um cookie assinado com `SESSION_SECRET`.
 - **Não existe tabela de anexos e não há bucket R2.**
@@ -380,7 +380,7 @@ Se `checks.database` vier `"missing"`, o binding `DB` não chegou ao deploy (con
 
 ## 6. Dados de exemplo (opcional)
 
-`seed/demo-local.sql` é uma referência de dados prontos: usuário demo (`100000000000000001`, Ana Beatriz), a sala pública **Desenvolvimento Web**, a sala privada **Projeto Integrador** (id `2`, convite `a1b2c3d4e5f60718293a4b5c6d7e8f901234`) e artigos/comentários/curtidas/etiquetas.
+`seed/demo-local.sql` é uma referência de dados prontos: usuário demo (`100000000000000001`, Ana Beatriz), a sala pública **Desenvolvimento Web**, a sala privada **Projeto Integrador** (id `2`, entra-se só com esse ID) e artigos/comentários/curtidas/etiquetas.
 
 Sem Wrangler, o caminho é o Console do banco: abra o D1 → **Console** → cole o conteúdo de [`../seed/demo-local.sql`](../seed/demo-local.sql) → **Execute**. Use apenas em um banco de desenvolvimento.
 

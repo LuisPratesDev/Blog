@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
 import { SLUG_PATTERN, generateSlug, parseArticleInput } from "../functions/_lib/articles.js";
-import { renderMarkdown } from "../public/js/markdown.js";
+import { renderMarkdown, sanitizeHtml } from "../public/js/markdown.js";
 import { excerpt } from "../public/js/text.js";
-import { JOIN_POLICIES, canViewRoom, generateInviteCode, hashInviteCode, resolveJoin } from "../functions/_lib/rooms.js";
+import { JOIN_POLICIES, canViewRoom, generateRoomNonce, resolveJoin } from "../functions/_lib/rooms.js";
 import {
   SESSION_COOKIE, clearedCookie, getSession, readCookie, serializeCookie, sessionCookie, signSession,
 } from "../functions/_lib/session.js";
 
 const SECRET = "s".repeat(32);
-const SEED_INVITE = "a1b2c3d4e5f60718293a4b5c6d7e8f901234";
-const SEED_INVITE_HASH = "qNlWRc3ls6c2a0D/CECra9rQXex+bCIdhv1QDFc5fmA=";
 
 function requestWithCookie(cookie, url = "https://blog.dev/api") {
   return { url, headers: { get: (name) => (name.toLowerCase() === "cookie" ? cookie : null) } };
@@ -69,22 +66,12 @@ describe("parseArticleInput", () => {
   });
 });
 
-describe("hashInviteCode", () => {
-  it("gera SHA-256 em base64 igual ao node:crypto", async () => {
-    const code = generateInviteCode();
-    assert.equal(await hashInviteCode(code), createHash("sha256").update(code).digest("base64"));
-  });
-
-  it("gera códigos de 36 hex e hashes distintos por código", async () => {
-    const primeiro = generateInviteCode();
-    const segundo = generateInviteCode();
+describe("nonce interno da sala privada", () => {
+  it("gera 36 caracteres hex distintos (só para a constraint do schema)", () => {
+    const primeiro = generateRoomNonce();
+    const segundo = generateRoomNonce();
     assert.match(primeiro, /^[a-f0-9]{36}$/);
     assert.notEqual(primeiro, segundo);
-    assert.notEqual(await hashInviteCode(primeiro), await hashInviteCode(segundo));
-  });
-
-  it("confere o convite gravado no seed da sala privada", async () => {
-    assert.equal(await hashInviteCode(SEED_INVITE), SEED_INVITE_HASH);
   });
 });
 
@@ -191,21 +178,19 @@ describe("pedido de entrada na sala", () => {
   });
 
   it("mantém membro como está", () => {
-    assert.equal(resolveJoin({ isMember: true, visibility: "private", joinPolicy: "approval", inviteMatches: false }), "already_member");
+    assert.equal(resolveJoin({ isMember: true, visibility: "private", joinPolicy: "approval" }), "already_member");
   });
 
-  it("recusa convite errado em sala privada", () => {
-    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "open_link", inviteMatches: false }), "denied");
-    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "approval", inviteMatches: false }), "denied");
+  it("sala privada entra só com o ID, sem código de convite", () => {
+    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "open_link" }), "joined");
   });
 
-  it("entra direto quando a sala libera por link", () => {
-    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "open_link", inviteMatches: true }), "joined");
-    assert.equal(resolveJoin({ isMember: false, visibility: "public", joinPolicy: "open_link", inviteMatches: true }), "joined");
+  it("entra direto em sala pública", () => {
+    assert.equal(resolveJoin({ isMember: false, visibility: "public", joinPolicy: "open_link" }), "joined");
   });
 
-  it("deixa pendente quando a sala exige aprovação", () => {
-    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "approval", inviteMatches: true }), "pending");
+  it("deixa pendente quando o dono exige aprovação", () => {
+    assert.equal(resolveJoin({ isMember: false, visibility: "private", joinPolicy: "approval" }), "pending");
   });
 });
 
@@ -355,5 +340,74 @@ describe("imagens no Markdown", () => {
     assert.equal(externa.includes("<img"), false);
     assert.equal(externa.includes("<a "), false);
     assert.match(externa, /!\[x\]/);
+  });
+});
+
+describe("tabelas no Markdown", () => {
+  it("monta thead e tbody a partir das barras", () => {
+    const html = renderMarkdown("| Item | Total |\n| --- | ---: |\n| CSS | 2 |\n| D1 | 5 |");
+    assert.match(html, /^<table><thead><tr><th>Item<\/th><th class="align-right">Total<\/th><\/tr><\/thead>/);
+    assert.match(html, /<tbody><tr><td>CSS<\/td><td class="align-right">2<\/td><\/tr>/);
+    assert.match(html, /<td>D1<\/td>/);
+    assert.match(html, /<\/tbody><\/table>$/);
+  });
+
+  it("aplica alinhamento central com dois pontos", () => {
+    const html = renderMarkdown("a | b\n:---: | ---\n1 | 2");
+    assert.match(html, /<th class="align-center">a<\/th>/);
+  });
+
+  it("célula aceita negrito e código inline", () => {
+    const html = renderMarkdown("| x |\n| --- |\n| **forte** `c` |");
+    assert.match(html, /<td><strong>forte<\/strong> <code>c<\/code><\/td>/);
+  });
+
+  it("linhas com barra sem separador continuam parágrafo", () => {
+    const html = renderMarkdown("a | b\ncontinua");
+    assert.equal(html.includes("<table>"), false);
+    assert.match(html, /<p>a \| b<br>continua<\/p>/);
+  });
+});
+
+describe("HTML sanitizado no artigo", () => {
+  it("renderiza tags permitidas de um bloco ```html", () => {
+    const html = renderMarkdown("```html\n<h2>Passos</h2>\n<p>Texto <strong>forte</strong> e <a href=\"https://exemplo.com\">link</a>.</p>\n```");
+    assert.match(html, /<h2>Passos<\/h2>/);
+    assert.match(html, /<strong>forte<\/strong>/);
+    assert.match(html, /<a href="https:\/\/exemplo.com" target="_blank" rel="noopener noreferrer">link<\/a>/);
+  });
+
+  it("aceita SVG inline dentro do bloco html", () => {
+    const html = renderMarkdown("```html\n<svg viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#2f725f\"/></svg>\n```");
+    assert.match(html, /<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#2f725f"><\/svg>/);
+  });
+
+  it("remove script, style e iframe com o conteúdo", () => {
+    const html = sanitizeHtml(
+      "<p>ok</p><script>alert(1)</script><style>body{display:none}</style><iframe src=\"https://x\"></iframe>",
+    );
+    assert.equal(html, "<p>ok</p>");
+  });
+
+  it("limpa atributos de evento e URLs perigosas", () => {
+    const html = sanitizeHtml("<p onclick=\"alert(1)\" style=\"color:red\">a</p><a href=\"javascript:alert(1)\">b</a>");
+    assert.equal(html.includes("onclick"), false);
+    assert.equal(html.includes("style="), false);
+    assert.equal(html.includes("javascript:"), false);
+    assert.match(html, /<a>b<\/a>/);
+  });
+
+  it("descarta imagem fora do http(s)", () => {
+    assert.equal(sanitizeHtml("<img src=\"data:image/svg+xml;base64,AAAA\">"), "");
+    assert.match(sanitizeHtml("<img src=\"https://a.png\" alt=\"x\">"), /<img src="https:\/\/a.png" alt="x">/);
+  });
+
+  it("tag desconhecida aparece como texto escapado", () => {
+    assert.equal(sanitizeHtml("<form action=\"/x\">oi</form>"), "");
+    assert.equal(sanitizeHtml("<marquee>oi</marquee>"), "&lt;marquee&gt;oi&lt;/marquee&gt;");
+  });
+
+  it("bloco ```js continua como código escapado", () => {
+    assert.equal(renderMarkdown("```js\n<p>x</p>\n```"), "<pre><code>&lt;p&gt;x&lt;/p&gt;</code></pre>");
   });
 });

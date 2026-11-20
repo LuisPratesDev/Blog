@@ -49,7 +49,9 @@ a { color: inherit; text-decoration: none; }
 .button-quiet:hover, .button-small:hover { border-color: #b7c9bd; background: var(--green-pale); }
 .button-small { min-height: 34px; padding: 0 12px; border-color: var(--line); background: #fff; font-size: 12px; }
 .button-full { width: 100%; margin-top: 12px; }
-.profile-chip { max-width: 190px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 210px; color: var(--muted); font-size: 12px; }
+.profile-chip .avatar { width: 28px; height: 28px; border: 1px solid #dfe6e0; }
+.profile-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layout { width: min(1120px, calc(100% - 48px)); display: grid; grid-template-columns: minmax(0, 1fr) 294px; gap: 66px; margin: 0 auto; padding: 62px 0 90px; }
 .content-column { min-width: 0; }
 .hero { position: relative; padding: 18px 0 39px; border-bottom: 1px solid var(--line); }
@@ -97,7 +99,6 @@ a { color: inherit; text-decoration: none; }
 .sidebar { display: flex; flex-direction: column; gap: 16px; padding-top: 7px; }
 .side-card { padding: 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
 .about-card { padding-top: 25px; background: #edf4ee; border-color: #e5eee6; }
-.side-icon { display: inline-grid; width: 32px; height: 32px; place-items: center; margin-bottom: 17px; border-radius: 9px; background: #dceade; color: var(--green); font-size: 19px; }
 .side-card .eyebrow { margin-bottom: 8px; font-size: 9px; }
 .side-card h2 { margin: 0; font: 700 18px/1.35 "Segoe UI", sans-serif; letter-spacing: -.35px; }
 .about-card > p:not(.eyebrow), .side-copy { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
@@ -138,6 +139,14 @@ a { color: inherit; text-decoration: none; }
 .markdown-body code { padding: 2px 4px; border-radius: 4px; background: #f0f3ef; font: 12px/1.5 Consolas, monospace; }
 .markdown-body pre code { padding: 0; background: transparent; }
 .markdown-body a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.markdown-body table { width: 100%; margin: 1.1em 0; border-collapse: collapse; font-size: 12px; }
+.markdown-body th, .markdown-body td { padding: 7px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.markdown-body th { background: var(--green-pale); font-weight: 800; }
+.markdown-body .align-center { text-align: center; }
+.markdown-body .align-right { text-align: right; }
+.markdown-body figure { margin: 1.1em 0; }
+.markdown-body figcaption { color: var(--muted); font-size: 11px; }
+.markdown-body svg { max-width: 100%; height: auto; }
 .comments-section { margin-top: 34px; padding-top: 21px; border-top: 1px solid var(--line); }
 .comments-section h3 { margin: 0 0 13px; font: 700 17px "Segoe UI", sans-serif; }
 .comment-item { display: flex; gap: 10px; margin: 13px 0; }
@@ -148,6 +157,13 @@ a { color: inherit; text-decoration: none; }
 .room-admin { display: flex; flex-direction: column; gap: 9px; }
 .article-svg { display: block; margin: 1.1em 0; max-width: 100%; max-height: 70vh; height: auto; }
 .hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.editor-help { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
+.editor-help summary { color: var(--green-dark); cursor: pointer; font-weight: 800; }
+.editor-help ul { margin: 7px 0 0; padding-left: 17px; line-height: 1.7; }
+.editor-help code { padding: 1px 4px; border-radius: 4px; background: #f0f3ef; font: 11px/1.5 Consolas, monospace; }
+.owner-bar { margin-top: 10px; }
+.button-danger { border-color: #e6c6bd; color: #a8443a; }
+.button-danger:hover { border-color: #d8a99e; background: #fbf0ed; }
 .room-member { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .room-member:last-child { border-bottom: 0; }
 .member-name { display: inline-flex; align-items: center; gap: 7px; }
@@ -168,7 +184,7 @@ footer { min-height: 77px; display: flex; align-items: center; justify-content: 
   .topbar { height: 70px; padding: 0 18px; }
   .brand { font-size: 17px; }.brand-mark { width: 30px; height: 30px; }
   .top-actions { gap: 6px; }.top-actions .button { min-height: 36px; padding: 0 10px; font-size: 11px; }
-  .profile-chip { display: none; }
+  .profile-name { display: none; }
   .layout { width: min(100% - 34px, 550px); grid-template-columns: 1fr; gap: 35px; padding: 37px 0 55px; }
   .hero { padding-top: 8px; }.hero h1 { font-size: clamp(38px, 10vw, 53px); letter-spacing: -1.8px; }
   .sidebar { display: grid; grid-template-columns: 1fr; }

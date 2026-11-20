@@ -15,7 +15,7 @@ const avatar = (src) =>
 
 function renderPage({ title, description, user, content, robots = "index, follow", canonical = "", status = 200 }) {
   const account = user
-    ? `<div class="profile-chip" title="${escapeHtml(user.username)}">Olá, ${escapeHtml(user.username)}</div>`
+    ? `<div class="profile-chip" title="${escapeHtml(user.username)}">${avatar(user.avatar)}<span class="profile-name">Olá, ${escapeHtml(user.username)}</span></div>`
     : `<a class="button button-discord" href="/api/auth/discord">Entrar com Discord</a>`;
 
   const html = `<!doctype html>
@@ -82,11 +82,14 @@ function renderNotice({ status, title, message, user, canonical }) {
 }
 
 function renderComment(comment, permissions) {
-  const actions = [permissions.canDelete
-    ? `<button class="action-button" type="button" data-delete-comment="${comment.id}" aria-label="Excluir comentário de ${escapeHtml(comment.username)}">Excluir</button>`
-    : permissions.canReport
+  const actions = [
+    permissions.canDelete
+      ? `<button class="action-button" type="button" data-delete-comment="${comment.id}" aria-label="Excluir comentário de ${escapeHtml(comment.username)}">Excluir comentário</button>`
+      : "",
+    permissions.canReport
       ? `<button class="action-button" type="button" data-report-comment="${comment.id}" aria-label="Denunciar comentário de ${escapeHtml(comment.username)}">Denunciar</button>`
-      : ""].join("");
+      : "",
+  ].join("");
 
   return `<div class="comment-item" data-comment="${comment.id}">
       ${avatar(comment.avatar)}
@@ -138,6 +141,13 @@ function renderArticle({ article, comments, related, user, permissions }) {
     ? ` · atualizado em ${escapeHtml(formatDate(article.updated_at))}`
     : "";
 
+  const ownerActions = user && user.userId === article.author_id
+    ? `<div class="article-actions owner-bar">
+        <a class="button button-small" href="/?author=${encodeURIComponent(article.author_id)}">Ver meus artigos</a>
+        <button class="button button-small button-danger" type="button" data-delete-article="${article.id}" title="Apaga o artigo e os comentários dele">Excluir artigo</button>
+      </div>`
+    : "";
+
   const commentsList = comments.length
     ? comments.map((comment) => renderComment(comment, permissions(comment))).join("\n")
     : `<p class="muted">Ainda não há comentários. Comece a conversa.</p>`;
@@ -164,6 +174,7 @@ function renderArticle({ article, comments, related, user, permissions }) {
       </div>
       <h1 class="article-page-title">${escapeHtml(article.title)}</h1>
       ${renderTags(tags)}
+      ${ownerActions}
       ${renderToc(headings)}
       <div class="markdown-body">${renderMarkdown(article.body)}</div>
       ${renderRelated(related)}

@@ -1,6 +1,6 @@
 -- Dados de exemplo para o D1 LOCAL (nunca aplique em produção).
 -- Dados de exemplo (referência). Aplique pelo Console do D1, apenas em banco de desenvolvimento.
--- Sala privada: id 2, convite a1b2c3d4e5f60718293a4b5c6d7e8f901234
+-- Sala privada: id 2 (entra-se só com o ID; não há código de convite)
 
 INSERT OR IGNORE INTO discord_users (user_id, username, avatar, updated_at)
 VALUES ('100000000000000001', 'Ana Beatriz', NULL, CURRENT_TIMESTAMP);
@@ -20,7 +20,7 @@ VALUES
   (1, lower(hex(randomblob(16))), '100000000000000001', NULL, 'Markdown sem sustos: o que o editor aceita',
    '# O básico que funciona' || char(10) || char(10) ||
    'O editor aceita **negrito**, *itálico*, `código inline` e [links](https://developer.mozilla.org/). ' ||
-   'Nada de HTML solto: o texto entra como texto e o renderizador escapa tudo antes de montar a marcação.' || char(10) || char(10) ||
+   'HTML entra em bloco ```html e passa por sanitização antes de aparecer; SVG em bloco ```svg vira figura.' || char(10) || char(10) ||
    '## Listas ajudam a revisar' || char(10) || char(10) ||
    '- títulos com `#`, `##` e `###`' || char(10) ||
    '- listas com `-`, `*` ou `1.`' || char(10) ||

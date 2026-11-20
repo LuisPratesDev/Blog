@@ -34,7 +34,8 @@ function updateAuthUI() {
   byId("loginLink").hidden = signedIn;
   if (!state.user) return;
   const chip = byId("profileChip");
-  chip.textContent = `Olá, ${state.user.username}`;
+  const name = element("span", { className: "profile-name", text: `Olá, ${state.user.username}` });
+  chip.replaceChildren(avatarImage(state.user.avatar, "avatar profile-avatar"), name);
   chip.title = state.user.username;
 }
 
@@ -76,12 +77,12 @@ function roomBadge(visibility) {
 function focusInvite(roomId, message) {
   byId("roomInvite").value = roomId;
   setMessage(byId("roomMessage"), message);
-  byId("inviteCode").focus();
+  byId("roomInvite").focus();
 }
 
 function openRoom(room) {
   if (room.visibility === "private" && !room.is_member) {
-    focusInvite(room.id, "Informe o ID e código de convite para participar.");
+    focusInvite(room.id, "Sala privada: o ID já está preenchido, clique em “Entrar com o ID” (o dono pode exigir aprovação).");
     return;
   }
   state.roomId = String(room.id);
@@ -93,10 +94,10 @@ function openRoom(room) {
 
 function requestJoin(room) {
   if (room.visibility === "private") {
-    focusInvite(room.id, "Cole o código de convite para entrar nesta sala.");
+    focusInvite(room.id, "Sala privada: o ID já está preenchido, clique em “Entrar com o ID” (o dono pode exigir aprovação).");
     return;
   }
-  joinRoom(room.id, "");
+  joinRoom(room.id);
 }
 
 function renderRooms() {
@@ -131,7 +132,7 @@ function renderRooms() {
     if (state.user && !room.is_member) {
       controls.append(element("button", {
         className: "room-join",
-        text: room.visibility === "public" ? "Entrar" : "Convite",
+        text: room.visibility === "public" ? "Entrar" : "Entrar com ID",
         attrs: { type: "button" },
         on: { click: () => requestJoin(room) },
       }));
@@ -193,8 +194,8 @@ function toggleTag(tag) {
 
 function updatePolicyHint() {
   byId("roomPolicyHint").textContent = byId("roomPolicy").value === "approval"
-    ? "Quem tiver o convite só envia um pedido: entra apenas quem você aprovar na lista abaixo."
-    : "Quem tiver o ID e o código de convite entra direto, sem passar por você.";
+    ? "Quem tiver o ID só envia um pedido: entra apenas quem você aprovar na lista abaixo."
+    : "Quem tiver o ID entra direto, sem passar por você.";
 }
 
 async function openRoomAdmin(room) {
@@ -758,19 +759,15 @@ async function openHistory() {
   }
 }
 
-async function joinRoom(id, inviteCode) {
+async function joinRoom(id) {
   try {
-    const result = await api(`/api/rooms/${id}/join`, {
-      method: "POST",
-      body: JSON.stringify(inviteCode ? { inviteCode } : {}),
-    });
+    const result = await api(`/api/rooms/${id}/join`, { method: "POST", body: "{}" });
     setMessage(
       byId("roomMessage"),
       result.pending ? "Pedido enviado. O dono da sala precisa aprovar." : "Você entrou na sala.",
       true,
     );
     byId("roomInvite").value = "";
-    byId("inviteCode").value = "";
     await loadRooms();
   } catch (error) {
     setMessage(byId("roomMessage"), error.message);
@@ -848,6 +845,7 @@ function bindEvents() {
     const submit = event.submitter;
     if (submit) submit.disabled = true;
     try {
+      const visibility = byId("roomVisibility").value;
       const result = await api("/api/rooms", {
         method: "POST",
         body: JSON.stringify({
@@ -858,12 +856,12 @@ function bindEvents() {
       });
       byId("roomCreateForm").reset();
       byId("roomCreateForm").hidden = true;
-      if (result.inviteCode) {
+      if (visibility === "private") {
         const box = byId("inviteResult");
         box.hidden = false;
         box.replaceChildren(
-          document.createTextNode(`Sala privada criada. Compartilhe o ID ${result.id} e este código uma única vez:`),
-          element("code", { text: result.inviteCode }),
+          document.createTextNode("Sala privada criada. Compartilhe apenas o ID:"),
+          element("code", { text: String(result.id) }),
         );
       }
       await loadRooms();
@@ -882,7 +880,7 @@ function bindEvents() {
       setMessage(byId("roomMessage"), "Informe o ID da sala.");
       return;
     }
-    await joinRoom(id, byId("inviteCode").value.trim());
+    await joinRoom(id);
   });
 
   byId("clearFilterButton").addEventListener("click", () => {

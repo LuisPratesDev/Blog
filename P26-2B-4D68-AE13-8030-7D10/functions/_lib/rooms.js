@@ -3,24 +3,20 @@ import { randomHex } from "./random.js";
 import { getSession } from "./session.js";
 import { isPositiveId } from "./validation.js";
 
-export const INVITE_CODE_PATTERN = /^[a-f0-9]{36}$/;
 export const JOIN_POLICIES = ["open_link", "approval"];
 
-// Decide o que fazer com um pedido de entrada, sem tocar no banco.
-export function resolveJoin({ isMember, visibility, joinPolicy, inviteMatches }) {
+// Sala privada se entra só com o ID dela: nada de código de convite.
+// Decide o que fazer com o pedido de entrada, sem tocar no banco.
+export function resolveJoin({ isMember, visibility, joinPolicy }) {
   if (isMember) return "already_member";
-  if (visibility === "private" && !inviteMatches) return "denied";
   if (visibility === "private" && joinPolicy === "approval") return "pending";
   return "joined";
 }
 
-export function generateInviteCode() {
+// A tabela rooms exige invite_hash em salas privadas (constraint do schema).
+// O valor é um nonce aleatório interno, nunca exibido nem conferido no login.
+export function generateRoomNonce() {
   return randomHex(18);
-}
-
-export async function hashInviteCode(code) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
-  return btoa(String.fromCharCode(...new Uint8Array(digest)));
 }
 
 // Usado pelos endpoints de gestão da sala: devolve { response } em caso de erro ou { user, room }.

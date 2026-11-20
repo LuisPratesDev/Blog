@@ -55,6 +55,21 @@ if (form && list) {
 
 // Moderação: o servidor já decidiu quem pode excluir/denunciar; aqui só executamos.
 document.addEventListener("click", async (event) => {
+  const removeArticle = event.target.closest("[data-delete-article]");
+  if (removeArticle) {
+    const id = removeArticle.dataset.deleteArticle;
+    if (!window.confirm("Excluir este artigo? Os comentários e as curtidas dele também serão apagados.")) return;
+    removeArticle.disabled = true;
+    try {
+      await api(`/api/articles/${id}`, { method: "DELETE" });
+      location.href = "/";
+    } catch (error) {
+      removeArticle.disabled = false;
+      window.alert(error.message);
+    }
+    return;
+  }
+
   const removeButton = event.target.closest("[data-delete-comment]");
   if (removeButton) {
     const id = removeButton.dataset.deleteComment;

@@ -7,6 +7,96 @@ function toBase64(text) {
 
 const SVG_MAX_CHARS = 40000;
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]);
+}
+
+// ---- HTML sanitizado -------------------------------------------------------
+// Lista fechada de tags: o que não está aqui aparece como texto, nunca como marcação.
+const ALLOWED_TAGS = new Set([
+  "a", "b", "blockquote", "br", "caption", "code", "dd", "del", "details", "div", "dl", "dt",
+  "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img", "ins",
+  "li", "mark", "ol", "p", "pre", "s", "small", "span", "strong", "sub", "summary", "sup",
+  "table", "tbody", "td", "tfoot", "th", "thead", "tr", "u", "ul",
+  // SVG
+  "svg", "g", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "text",
+  "tspan", "defs", "lineargradient", "radialgradient", "stop", "clippath", "symbol", "use",
+  "title", "desc",
+]);
+
+const VOID_TAGS = new Set(["br", "hr", "img", "path", "circle", "rect", "line", "polyline", "polygon", "ellipse", "stop", "use"]);
+
+// Blocos que nunca podem entrar, nem como texto: o conteúdo deles é descartado.
+const DROPPED_BLOCKS = "script|style|iframe|object|embed|template|noscript|link|meta|base|form|input|button|textarea|select";
+
+const ALLOWED_ATTRS = new Set([
+  "title", "alt", "class", "role", "width", "height", "href", "src", "loading",
+  "viewbox", "xmlns", "d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
+  "stroke-dasharray", "opacity", "fill-rule", "clip-rule", "cx", "cy", "r", "rx", "ry",
+  "x", "y", "x1", "y1", "x2", "y2", "points", "transform", "text-anchor", "font-size",
+  "font-family", "font-weight", "aria-label", "aria-hidden", "colspan", "rowspan",
+]);
+
+const SAFE_URL = /^https?:\/\//i;
+
+function safeUrl(value) {
+  const url = String(value ?? "").trim();
+  return SAFE_URL.test(url) ? url : "";
+}
+
+function filterAttributes(name, raw) {
+  let output = "";
+  const pattern = /([a-zA-Z][\w:-]*)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
+  for (const match of String(raw || "").matchAll(pattern)) {
+    const attr = match[1];
+    const lower = attr.toLowerCase();
+    if (!ALLOWED_ATTRS.has(lower)) continue; // descarta on*, style, id, data-*, formaction...
+    const value = (match[3] ?? match[4] ?? match[5] ?? "").trim();
+    if ((lower === "href" || lower === "src") && !safeUrl(value)) continue;
+    // Mantém a grafia original: SVG diferencia viewBox de viewbox.
+    output += value ? ` ${attr}="${escapeHtml(value)}"` : ` ${attr}`;
+  }
+  if (name === "a" && output.includes(" href=")) output += ' target="_blank" rel="noopener noreferrer"';
+  return output;
+}
+
+// Remove blocos perigosos inteiros (inclusive o conteúdo) antes de validar as tags.
+export function sanitizeHtml(html) {
+  const source = String(html ?? "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(new RegExp(`<\\s*(${DROPPED_BLOCKS})\\b[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>`, "gi"), "")
+    .replace(new RegExp(`<\\s*(${DROPPED_BLOCKS})\\b[^>]*>`, "gi"), "")
+    .replace(new RegExp(`<\\s*\\/\\s*(${DROPPED_BLOCKS})\\s*>`, "gi"), "");
+
+  const tagPattern = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+  let output = "";
+  let lastIndex = 0;
+  for (const match of source.matchAll(tagPattern)) {
+    output += source.slice(lastIndex, match.index);
+    lastIndex = match.index + match[0].length;
+
+    const closing = match[1] === "/";
+    const name = match[2].toLowerCase();
+
+    if (!ALLOWED_TAGS.has(name)) {
+      // Tag desconhecida vira texto: o autor vê literalmente o que escreveu.
+      output += escapeHtml(match[0]);
+      continue;
+    }
+    if (closing) {
+      if (!VOID_TAGS.has(name)) output += `</${name}>`;
+      continue;
+    }
+    if (name === "img" && !/ src="https?:\/\//i.test(filterAttributes(name, match[3]))) {
+      continue; // imagem sem URL http(s) segura simplesmente não aparece
+    }
+    output += `<${name}${filterAttributes(name, match[3])}>`;
+  }
+  return output + source.slice(lastIndex);
+}
+
 // Bloco ```svg vira <img> (data URL): dentro de <img> o navegador não executa script do SVG.
 // Sem raiz <svg> ou grande demais, volta a ser bloco de código escapado.
 function svgImage(source) {
@@ -16,12 +106,6 @@ function svgImage(source) {
   const title = source.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const alt = title ? escapeHtml(title[1].trim().slice(0, 120)) : "Figura SVG";
   return `<img class="article-svg" src="data:image/svg+xml;base64,${toBase64(source)}" alt="${alt}" loading="lazy" decoding="async">`;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  })[char]);
 }
 
 export function slugify(value) {
@@ -72,6 +156,34 @@ function inlineMarkdown(text) {
   return html + escapeHtml(text.slice(lastIndex));
 }
 
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+
+function splitTableRow(line) {
+  let row = line.trim();
+  if (row.startsWith("|")) row = row.slice(1);
+  if (row.endsWith("|")) row = row.slice(0, -1);
+  return row.split("|").map((cell) => cell.trim());
+}
+
+function alignClass(cell) {
+  const value = cell.trim();
+  if (value.startsWith(":") && value.endsWith(":")) return ' class="align-center"';
+  if (value.endsWith(":")) return ' class="align-right"';
+  return "";
+}
+
+function renderTable(headerCells, separatorCells, rows) {
+  const head = headerCells
+    .map((cell, index) => `<th${alignClass(separatorCells[index] || "")}>${inlineMarkdown(cell)}</th>`)
+    .join("");
+  const body = rows
+    .map((cells) => `<tr>${headerCells
+      .map((_, index) => `<td${alignClass(separatorCells[index] || "")}>${inlineMarkdown(cells[index] || "")}</td>`)
+      .join("")}</tr>`)
+    .join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
 export function renderMarkdown(markdown) {
   const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
   const blocks = [];
@@ -101,21 +213,44 @@ export function renderMarkdown(markdown) {
   const flushCode = () => {
     if (code === null) return;
     const source = code.lines.join("\n");
-    const image = code.language === "svg" ? svgImage(source) : null;
-    blocks.push(image ?? `<pre><code>${escapeHtml(source)}</code></pre>`);
+    if (code.language === "svg") blocks.push(svgImage(source) ?? `<pre><code>${escapeHtml(source)}</code></pre>`);
+    else if (code.language === "html" || code.language === "htm") blocks.push(sanitizeHtml(source));
+    else blocks.push(`<pre><code>${escapeHtml(source)}</code></pre>`);
     code = null;
   };
 
-  for (const line of lines) {
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+
     if (line.trim().startsWith("```")) {
       flushParagraph();
       flushList();
       if (code === null) code = { language: line.trim().slice(3).trim().toLowerCase(), lines: [] };
       else flushCode();
+      index += 1;
       continue;
     }
     if (code !== null) {
       code.lines.push(line);
+      index += 1;
+      continue;
+    }
+
+    // Tabela: cabeçalho com "|" seguido da linha de separadores (---).
+    const separator = lines[index + 1];
+    if (line.includes("|") && separator !== undefined && separator.includes("|") && TABLE_SEPARATOR.test(separator)) {
+      flushParagraph();
+      flushList();
+      const headerCells = splitTableRow(line);
+      const separatorCells = splitTableRow(separator);
+      const rows = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
+        rows.push(splitTableRow(lines[index]));
+        index += 1;
+      }
+      blocks.push(renderTable(headerCells, separatorCells, rows));
       continue;
     }
 
@@ -150,6 +285,7 @@ export function renderMarkdown(markdown) {
       flushList();
       paragraph.push(line);
     }
+    index += 1;
   }
 
   flushParagraph();

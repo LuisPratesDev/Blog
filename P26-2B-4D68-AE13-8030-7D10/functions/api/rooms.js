@@ -1,5 +1,5 @@
 import { errorResponse, isSameOrigin, json, readJson, requireDatabase } from "../_lib/http.js";
-import { generateInviteCode, hashInviteCode } from "../_lib/rooms.js";
+import { generateRoomNonce } from "../_lib/rooms.js";
 import { getSession } from "../_lib/session.js";
 
 export async function onRequestGet({ request, env }) {
@@ -39,13 +39,13 @@ export async function onRequestPost({ request, env }) {
   if (description.length > 240) return errorResponse("A descrição aceita até 240 caracteres.");
   if (!["public", "private"].includes(visibility)) return errorResponse("Escolha uma sala pública ou privada.");
 
-  const inviteCode = visibility === "private" ? generateInviteCode() : null;
-  const inviteHash = inviteCode ? await hashInviteCode(inviteCode) : null;
+  // Sala privada entra só com o ID; o nonce abaixo apenas satisfaz a constraint do schema.
+  const inviteHash = visibility === "private" ? generateRoomNonce() : null;
 
   const result = await env.DB.prepare(
     "INSERT INTO rooms (owner_id, name, description, visibility, invite_hash) VALUES (?, ?, ?, ?, ?)",
   ).bind(user.userId, name, description, visibility, inviteHash).run();
   await env.DB.prepare("INSERT INTO room_members (room_id, user_id) VALUES (?, ?)")
     .bind(result.meta.last_row_id, user.userId).run();
-  return json({ ok: true, id: result.meta.last_row_id, inviteCode }, 201);
+  return json({ ok: true, id: result.meta.last_row_id }, 201);
 }

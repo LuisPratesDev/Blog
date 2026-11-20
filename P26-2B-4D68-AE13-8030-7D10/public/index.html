@@ -49,7 +49,7 @@
           <label class="field-label" for="articleTags">Etiquetas <span>(até 5, separadas por vírgula)</span></label>
           <input class="text-input" id="articleTags" name="tags" maxlength="120" placeholder="ex.: css, acessibilidade, d1">
           <div class="editor-toolbar">
-            <span>Conteúdo em Markdown</span>
+            <span>Conteúdo em Markdown, tabelas, HTML e SVG</span>
             <span class="editor-tools">
               <button class="button button-small" id="historyButton" type="button" hidden title="Ver versões anteriores deste artigo">Histórico</button>
               <button class="button button-small" id="previewButton" type="button" aria-pressed="false" title="Alterna entre o texto cru e a pré-visualização do Markdown">Pré-visualizar</button>
@@ -57,9 +57,18 @@
           </div>
           <textarea class="text-input markdown-input" id="articleBody" name="body" maxlength="50000" placeholder="Compartilhe uma ideia, um tutorial ou algo que você aprendeu..." required></textarea>
           <div class="markdown-preview markdown-body" id="markdownPreview" hidden></div>
+          <details class="editor-help">
+            <summary>Formatos aceitos no artigo</summary>
+            <ul>
+              <li><strong>Markdown</strong>: <code># título</code>, <code>**negrito**</code>, <code>*itálico*</code>, <code>`código`</code>, listas, citações e <code>[links](https://exemplo.com)</code>.</li>
+              <li><strong>Tabelas</strong>: separe as colunas com <code>|</code> e coloque uma linha de <code>---</code> abaixo do cabeçalho. A prévia já mostra a tabela montada.</li>
+              <li><strong>HTML</strong>: comece o bloco com <code>```html</code> para escrever HTML. Ele é sanitizado: títulos, parágrafos, listas, tabelas, links (<code>https</code>), imagens (<code>https</code>), <code>figure</code>, <code>details</code> e SVG são aceitos; <code>script</code>, <code>style</code>, <code>iframe</code> e atributos <code>on*</code> são removidos.</li>
+              <li><strong>SVG</strong>: <code>```svg</code> desenha o SVG como figura; um <code>&lt;svg&gt;</code> dentro do bloco <code>```html</code> também aparece.</li>
+            </ul>
+          </details>
           <p class="hint" id="draftNote" role="status"></p>
           <div class="editor-footer">
-            <span>Markdown: **negrito**, `código`, # título e [links](https://exemplo.com)</span>
+            <span>Markdown, tabelas, <code>```html</code> e <code>```svg</code> — use “Pré-visualizar”.</span>
             <button class="button button-primary" type="submit" id="publishButton">Publicar artigo</button>
           </div>
           <p class="form-message" id="articleMessage" role="status"></p>
@@ -92,7 +101,6 @@
 
     <aside class="sidebar">
       <section class="side-card about-card">
-        <span class="side-icon" aria-hidden="true">✳</span>
         <p class="eyebrow">UM ESPAÇO DA TURMA</p>
         <h2>Conhecimento cresce quando circula.</h2>
         <p>Publique o que está aprendendo, encontre novas perspectivas e faça parte da conversa.</p>
@@ -106,13 +114,11 @@
 
       <section class="side-card rooms-card">
         <div class="side-heading"><div><p class="eyebrow">CONVERSAS EM GRUPO</p><h2>Salas</h2></div><button class="icon-button" id="newRoomButton" type="button" aria-label="Criar sala" hidden>+</button></div>
-        <p class="side-copy">Espaços para reunir artigos por tema. Salas privadas só abrem com convite.</p>
+        <p class="side-copy">Espaços para reunir artigos por tema. Para entrar numa sala privada, basta o ID dela.</p>
         <form class="join-form" id="joinRoomForm">
-          <label class="sr-only" for="roomInvite">Código de convite privado</label>
-          <input class="text-input" id="roomInvite" placeholder="ID da sala privada" inputmode="numeric">
-          <label class="sr-only" for="inviteCode">Código de convite</label>
-          <input class="text-input" id="inviteCode" placeholder="Código de convite">
-          <button class="button button-small" type="submit">Entrar</button>
+          <label class="sr-only" for="roomInvite">ID da sala</label>
+          <input class="text-input" id="roomInvite" placeholder="ID da sala" inputmode="numeric">
+          <button class="button button-small" type="submit">Entrar com o ID</button>
         </form>
         <p class="form-message" id="roomMessage" role="status"></p>
         <div class="room-list" id="roomList"><p class="muted">Carregando salas...</p></div>
@@ -124,7 +130,7 @@
           <label class="field-label" for="roomVisibility">Visibilidade</label>
           <select class="text-input" id="roomVisibility">
             <option value="public">Pública — qualquer pessoa pode participar</option>
-            <option value="private">Privada — somente por convite</option>
+            <option value="private">Privada — só entra quem tiver o ID</option>
           </select>
           <button class="button button-primary button-full" type="submit">Criar sala</button>
         </form>
@@ -139,11 +145,10 @@
         <p class="side-copy" id="roomAdminName"></p>
         <label class="field-label" for="roomPolicy">Quem pode entrar</label>
         <select class="text-input" id="roomPolicy" aria-describedby="roomPolicyHint" title="Escolha se o link entra direto ou se cada pessoa precisa da sua aprovação">
-          <option value="open_link">Qualquer pessoa com o convite</option>
+          <option value="open_link">Qualquer pessoa com o ID</option>
           <option value="approval">Somente quem eu aprovar</option>
         </select>
-        <p class="hint" id="roomPolicyHint"></p>
-        <p class="eyebrow admin-eyebrow">PEDIDOS PENDENTES</p>
+        <p class="hint" id="roomPolicyHint"></p>        <p class="eyebrow admin-eyebrow">PEDIDOS PENDENTES</p>
         <div class="join-requests" id="joinRequests"><p class="muted">Carregando...</p></div>
         <p class="eyebrow admin-eyebrow">MEMBROS COM ACESSO</p>
         <div class="room-members" id="roomMembers"><p class="muted">Carregando...</p></div>

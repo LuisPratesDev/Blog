@@ -35,17 +35,18 @@ Pré-requisitos: Node.js 20+ e uma aplicação Discord OAuth2 criada (passo 5 do
 
 ```powershell
 npm test             # testes unitários (node:test), sem instalar nada
-npm run test:e2e     # validação ponta a ponta contra um servidor local
+npm run dev:local    # sobe as Pages Functions localmente em http://127.0.0.1:8788
+npm run test:e2e     # validação ponta a ponta contra esse servidor local
 npm run validate     # npm test + validar-local.mjs na raiz do repositório
 ```
 
-O projeto não tem dependências e não usa Wrangler. Os testes unitários rodam sem banco: o D1 é simulado. As Pages Functions só executam em runtime de Workers, então a validação de ponta a ponta (`npm run test:e2e`) precisa de um servidor local de Pages ou do próprio site publicado — ela é opcional.
+O projeto não tem dependências e não usa Wrangler. Os testes unitários rodam sem banco: o D1 é simulado. Para o ponta a ponta, `tests/server-local.mjs` executa as próprias Pages Functions no Node, com um D1 em `node:sqlite` criado a partir de `schema.sql` e os dois usuários de teste já inseridos — em outro terminal, rode `npm run dev:local` e depois `npm run test:e2e`. O servidor local lê `SESSION_SECRET` do `.env`.
 
 CI e publicação: [docs/ci-e-publicacao.md](./docs/ci-e-publicacao.md).
 
 As credenciais do Discord e o segredo da sessão ficam apenas no painel do Cloudflare Pages (Settings → Variables and Secrets) para o site publicado. O `.env` (copie de `.env.example`) é usado somente pelos testes locais e nunca vai para o Git nem para a Cloudflare.
 
-`seed/demo-local.sql` é uma referência de dados de exemplo (usuário demo, sala pública **Desenvolvimento Web**, sala privada **Projeto Integrador** com o convite `a1b2c3d4e5f60718293a4b5c6d7e8f901234`). Use apenas em um banco de desenvolvimento, nunca em produção.
+`seed/demo-local.sql` é uma referência de dados de exemplo (usuário demo, sala pública **Desenvolvimento Web**, sala privada **Projeto Integrador**). Use apenas em um banco de desenvolvimento, nunca em produção.
 
 ## Como Publicar esta Subpasta no Cloudflare Pages + D1 + Discord OAuth2
 
@@ -73,13 +74,15 @@ Para instruções detalhadas sobre quais valores configurar e exatamente onde in
 
 ## Uso das salas
 
-Qualquer pessoa autenticada pode criar uma sala pública ou privada. Salas públicas podem ser abertas e acompanhadas por todos. Ao criar uma sala privada, o blog mostra uma única vez o ID da sala e seu código de convite; compartilhe ambos somente com as pessoas que devem participar. Os artigos publicados dentro de uma sala privada, assim como seus comentários, ficam restritos aos membros.
+Qualquer pessoa autenticada pode criar uma sala pública ou privada. Salas públicas podem ser abertas e acompanhadas por todos. Sala privada funciona **só pelo ID**: quem tiver o número da sala usa o campo de entrada do painel lateral e entra (ou envia um pedido, se o dono escolher “somente quem eu aprovar”). Não existe código de convite. Os artigos publicados dentro de uma sala privada, assim como seus comentários, ficam restritos aos membros.
 
 ## Markdown
 
-O editor aceita títulos (`#`), listas, citações (`>`), blocos cercados por três crases, código inline (`` `código` ``), **negrito**, *itálico* e links HTTP/HTTPS. A visualização prévia usa o mesmo renderizador local do artigo; HTML inserido como texto não é interpretado como marcação executável.
+O editor aceita títulos (`#`), listas, citações (`>`), blocos cercados por três crases, código inline (`` `código` ``), **negrito**, *itálico*, links HTTP/HTTPS e **tabelas** (colunas separadas por `|` e uma linha de `---` abaixo do cabeçalho). A visualização prévia usa o mesmo renderizador do artigo.
 
-Blocos ```` ```svg ```` são exibidos como imagem (o navegador não executa scripts dentro de `<img>`), com limite de 40.000 caracteres e altura máxima de 70% da tela. O SVG deve começar em `<svg` e terminar em `</svg>`; caso contrário volta a aparecer como código.
+**HTML** entra em blocos ```` ```html ````. Ele é sanitizado por uma lista fechada: títulos, parágrafos, listas, tabelas, `figure`/`figcaption`, `details`, links e imagens `https`, além de SVG, são mantidos; `script`, `style`, `iframe`, `object`, `form` e atributos `on*`/`style` são removidos, e URL fora de `http(s)` é descartada. Fora de um bloco ```` ```html ````, HTML digitado no texto continua aparecendo como texto.
+
+Blocos ```` ```svg ```` são exibidos como imagem (o navegador não executa scripts dentro de `<img>`), com limite de 40.000 caracteres e altura máxima de 70% da tela. O SVG deve começar em `<svg` e terminar em `</svg>`; caso contrário volta a aparecer como código. Um `<svg>` inline dentro do bloco ```` ```html ```` também é renderizado.
 
 ## Busca, etiquetas e paginação
 
